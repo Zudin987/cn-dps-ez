@@ -79,9 +79,10 @@ describe("resolveVerdantOracleAlerts", () => {
     expect(result.find((item) => item.id === "critical-energy")?.flash).toBe(
       true,
     );
-    expect(result.filter((item) => item.id !== "critical-energy"))
-      .toSatisfy((items: { flash: boolean }[]) =>
-        items.every((item) => item.flash === false),
-      );
+    expect(
+      result
+        .filter((item) => item.id !== "critical-energy")
+        .every((item) => item.flash === false),
+    ).toBe(true);
   });
 });
