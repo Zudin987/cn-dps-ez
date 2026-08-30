@@ -108,20 +108,25 @@
       {#each chargeResources as res}
         {@const cur = getResourceValue(res.currentId)}
         {@const max = Math.max(1, getResourceValue(res.maxId))}
-        <div class="res-charges-container">
+        <div
+          class="res-charges-container"
+          class:verdant-primary-row={classKey === "verdant_oracle"}
+        >
           {#if res.compactAbove !== undefined}
             {@const compactCur = Math.max(0, cur)}
             {@const compactMultiplierPrefix =
               res.compactMultiplierPrefix ?? "*"}
             {#if classKey === "verdant_oracle"}
-              <img
-                src={compactCur > 0 ? res.imageOn : res.imageOff}
-                alt={res.label}
-                class="res-charge-icon"
-              />
-              <span class="res-charge-multiplier"
-                >{compactMultiplierPrefix}{compactCur}</span
-              >
+              <span class="verdant-bud-counter">
+                <img
+                  src={compactCur > 0 ? res.imageOn : res.imageOff}
+                  alt={res.label}
+                  class="res-charge-icon"
+                />
+                <span class="res-charge-multiplier"
+                  >{compactMultiplierPrefix}{compactCur}</span
+                >
+              </span>
             {:else if compactCur <= 0}
               <img
                 src={res.imageOff}
@@ -271,7 +276,8 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
-    background: rgba(0, 0, 0, 0.95);
+    background: rgba(0, 0, 0, 0.85);
+    border-radius: 5px;
   }
 
   .resources-panel[data-class="verdant_oracle"] .res-charges-container {
@@ -283,51 +289,59 @@
   }
 
   .resources-panel[data-class="verdant_oracle"] .res-charge-multiplier {
-    margin-left: 4px;
+    margin-left: 0;
     font-size: 18px;
     line-height: 22px;
   }
 
+  .verdant-primary-row,
   .verdant-secondary-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr);
+    column-gap: 8px;
     align-items: center;
-    gap: 12px;
-    min-height: 30px;
+    width: 100%;
+    min-height: 24px;
     white-space: nowrap;
   }
 
+  .verdant-bud-counter,
   .verdant-seed-counter {
     display: inline-flex;
     align-items: center;
-    gap: 9px;
-    min-width: 72px;
+    gap: 4px;
+    justify-self: start;
   }
 
   .verdant-seed-dot {
     display: inline-block;
-    width: 26px;
-    height: 26px;
-    flex: 0 0 26px;
+    width: 22px;
+    height: 22px;
+    flex: 0 0 22px;
     border-radius: 50%;
     background: #22c55e;
     box-shadow:
-      0 0 7px rgba(34, 197, 94, 0.85),
-      0 0 13px rgba(34, 197, 94, 0.5);
+      0 0 6px rgba(34, 197, 94, 0.8),
+      0 0 10px rgba(34, 197, 94, 0.45);
   }
 
   .verdant-seed-value {
     color: #22c55e;
-    font-size: 24px;
+    font-size: 18px;
     font-weight: 800;
-    line-height: 26px;
+    line-height: 22px;
     text-shadow:
-      0 0 6px rgba(34, 197, 94, 0.8),
+      0 0 5px rgba(34, 197, 94, 0.75),
       1px 1px 2px rgba(0, 0, 0, 0.95);
   }
 
   .resources-panel[data-class="verdant_oracle"]
+    .verdant-primary-row
+    :global(.verdant-alerts.petal),
+  .resources-panel[data-class="verdant_oracle"]
     .verdant-secondary-row
     :global(.verdant-alerts.combo) {
+    justify-self: start;
     margin: 0;
     max-width: none;
     flex-wrap: nowrap;
