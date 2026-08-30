@@ -94,7 +94,16 @@
             {@const compactCur = Math.max(0, cur)}
             {@const compactMultiplierPrefix =
               res.compactMultiplierPrefix ?? "*"}
-            {#if compactCur <= 0}
+            {#if classKey === "verdant_oracle"}
+              <img
+                src={compactCur > 0 ? res.imageOn : res.imageOff}
+                alt={res.label}
+                class="res-charge-icon"
+              />
+              <span class="res-charge-multiplier"
+                >{compactMultiplierPrefix}{compactCur}</span
+              >
+            {:else if compactCur <= 0}
               <img
                 src={res.imageOff}
                 alt={res.label}
