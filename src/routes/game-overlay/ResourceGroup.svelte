@@ -75,7 +75,12 @@
               ></div>
             </div>
           </div>
-          <div class="res-text">{cur}/{max}</div>
+          <div class="res-text">
+            <span>{cur}/{max}</span>
+            {#if classKey === "verdant_oracle"}
+              <VerdantOracleAlerts lane="energy" />
+            {/if}
+          </div>
         </div>
       {/each}
     </div>
@@ -122,12 +127,15 @@
               />
             {/each}
           {/if}
+          {#if classKey === "verdant_oracle"}
+            <VerdantOracleAlerts lane="petal" />
+          {/if}
         </div>
       {/each}
     </div>
 
     {#if classKey === "verdant_oracle"}
-      <VerdantOracleAlerts />
+      <VerdantOracleAlerts lane="combo" />
     {/if}
   </div>
 
@@ -292,10 +300,13 @@
     position: absolute;
     top: -17px;
     left: 0;
+    display: flex;
+    align-items: center;
     font-size: 14px;
     font-weight: 700;
     color: #ffffff;
     text-shadow: var(--overlay-text-shadow, 1px 1px 2px rgba(0, 0, 0, 0.9));
+    white-space: nowrap;
   }
 
   .res-charges-container {
