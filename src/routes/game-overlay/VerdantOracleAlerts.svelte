@@ -3,15 +3,15 @@
   import {
     activeBuffIds,
     buffMap,
-    displayMap,
     fightResMap,
     getResourceValue,
   } from "./overlay-state.svelte.js";
 
+  type AlertLane = "energy" | "petal" | "combo";
+  let { lane = "combo" }: { lane?: AlertLane } = $props();
+
   const VERDANT_ENERGY_ID = 15001;
   const VERDANT_PETAL_ID = 15011;
-  const WARD_SKILL_ID = 1531;
-  const PULSE_SKILL_ID = 1523;
   const ENHANCED_INFUSION_BUFF_ID = 2202131;
   const STAG_BUILDUP_BUFF_ID = 2202251;
   const STAG_READY_BUFF_ID = 2202252;
@@ -25,7 +25,6 @@
   const petals = $derived(getResourceValue(VERDANT_PETAL_ID));
   const activeIds = $derived(activeBuffIds());
   const buffs = $derived(buffMap());
-  const skillDisplays = $derived(displayMap());
 
   const alerts = $derived.by(() => {
     if (!liveResourcesObserved) return [];
@@ -37,21 +36,32 @@
     return resolveVerdantOracleAlerts({
       energy,
       petals,
-      // Match the existing skill HUD's readiness semantics: no active CD
-      // display means usable, while charge skills can remain usable as they
-      // recharge when the backend reports an available charge.
-      wardUsable: skillDisplays.get(WARD_SKILL_ID)?.usable ?? true,
-      pulseUsable: skillDisplays.get(PULSE_SKILL_ID)?.usable ?? true,
       enhancedInfusionReady: activeIds.has(ENHANCED_INFUSION_BUFF_ID),
       stagReady:
         activeIds.has(STAG_READY_BUFF_ID) || stagBuildup >= STAG_READY_COUNT,
     });
   });
+
+  const visibleAlerts = $derived(
+    alerts.filter((alert) => {
+      if (lane === "energy") {
+        return alert.id === "low-energy" || alert.id === "critical-energy";
+      }
+      if (lane === "petal") {
+        return alert.id === "ok-pulse" || alert.id === "dont-pulse";
+      }
+      return (
+        alert.id === "einf-ready" ||
+        alert.id === "stag-ready" ||
+        alert.id === "einf-stag"
+      );
+    }),
+  );
 </script>
 
-{#if alerts.length > 0}
-  <div class="verdant-alerts" aria-live="polite">
-    {#each alerts as alert (alert.id)}
+{#if visibleAlerts.length > 0}
+  <div class="verdant-alerts" class:combo={lane === "combo"} aria-live="polite">
+    {#each visibleAlerts as alert (alert.id)}
       <div
         class="verdant-alert"
         class:critical-flash={alert.flash}
@@ -65,10 +75,17 @@
 
 <style>
   .verdant-alerts {
-    display: flex;
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 4px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+
+  .verdant-alerts.combo {
     max-width: 290px;
     flex-wrap: wrap;
-    gap: 4px;
     margin-top: 4px;
     margin-left: 15px;
   }
