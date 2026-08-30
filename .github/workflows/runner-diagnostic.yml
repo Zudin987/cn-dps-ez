@@ -1,0 +1,17 @@
+name: Runner Diagnostic
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm hosted runner starts
+        run: echo "GitHub-hosted runner is available"
