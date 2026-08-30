@@ -309,20 +309,27 @@
   .verdant-seed-counter {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
     justify-self: start;
+  }
+
+  .verdant-bud-counter {
+    gap: 4px;
+  }
+
+  .verdant-seed-counter {
+    gap: 9px;
   }
 
   .verdant-seed-dot {
     display: inline-block;
-    width: 22px;
-    height: 22px;
-    flex: 0 0 22px;
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
     border-radius: 50%;
     background: #22c55e;
     box-shadow:
-      0 0 6px rgba(34, 197, 94, 0.8),
-      0 0 10px rgba(34, 197, 94, 0.45);
+      0 0 5px rgba(34, 197, 94, 0.8),
+      0 0 8px rgba(34, 197, 94, 0.42);
   }
 
   .verdant-seed-value {
