@@ -1,7 +1,6 @@
 export const VERDANT_ORACLE_ALERT_COLORS = {
   lowEnergy: "#FFB020",
   criticalEnergy: "#FF3B30",
-  wardPulse: "#00D7FF",
   einfReady: "#7CFF6B",
   stagReady: "#FFD84D",
   einfStag: "#FF4DFF",
@@ -12,7 +11,6 @@ export const VERDANT_ORACLE_ALERT_COLORS = {
 export type VerdantOracleAlertId =
   | "low-energy"
   | "critical-energy"
-  | "ward-pulse"
   | "einf-ready"
   | "stag-ready"
   | "einf-stag"
@@ -29,8 +27,6 @@ export type VerdantOracleAlert = {
 export type VerdantOracleAlertInput = {
   energy: number;
   petals: number;
-  wardUsable: boolean;
-  pulseUsable: boolean;
   enhancedInfusionReady: boolean;
   stagReady: boolean;
 };
@@ -48,7 +44,7 @@ const alert = (
  * Priority is intentionally local to each information lane so unrelated useful
  * alerts can coexist while redundant states cannot:
  * - CRITICAL ENERGY > LOW ENERGY
- * - WARD → PULSE > OK TO PULSE
+ * - Petals <= 2 = OK TO PULSE, petals 3 = neutral, petals >= 4 = DON'T PULSE
  * - EINF → STAG > EINF READY / STAG READY
  */
 export function resolveVerdantOracleAlerts(
@@ -76,23 +72,13 @@ export function resolveVerdantOracleAlerts(
   }
 
   if (input.petals <= 2) {
-    if (input.energy >= 70 && input.wardUsable && input.pulseUsable) {
-      alerts.push(
-        alert(
-          "ward-pulse",
-          "WARD → PULSE",
-          VERDANT_ORACLE_ALERT_COLORS.wardPulse,
-        ),
-      );
-    } else {
-      alerts.push(
-        alert(
-          "ok-pulse",
-          "OK TO PULSE",
-          VERDANT_ORACLE_ALERT_COLORS.okPulse,
-        ),
-      );
-    }
+    alerts.push(
+      alert(
+        "ok-pulse",
+        "OK TO PULSE",
+        VERDANT_ORACLE_ALERT_COLORS.okPulse,
+      ),
+    );
   } else if (input.petals >= 4) {
     alerts.push(
       alert(
