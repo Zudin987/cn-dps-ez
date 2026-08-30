@@ -8,8 +8,6 @@ import {
 const baseInput: VerdantOracleAlertInput = {
   energy: 100,
   petals: 3,
-  wardUsable: false,
-  pulseUsable: false,
   enhancedInfusionReady: false,
   stagReady: false,
 };
@@ -26,23 +24,21 @@ describe("resolveVerdantOracleAlerts", () => {
     expect(ids({ energy: 60 })).not.toContain("low-energy");
   });
 
-  it("lets Ward into Pulse override the generic Pulse-safe cue", () => {
-    const result = ids({
-      energy: 70,
-      petals: 2,
-      wardUsable: true,
-      pulseUsable: true,
-    });
-
-    expect(result).toContain("ward-pulse");
-    expect(result).not.toContain("ok-pulse");
-  });
-
   it("keeps the Pulse petal states mutually exclusive", () => {
     expect(ids({ petals: 2 })).toContain("ok-pulse");
     expect(ids({ petals: 3 })).not.toContain("ok-pulse");
     expect(ids({ petals: 3 })).not.toContain("dont-pulse");
     expect(ids({ petals: 4 })).toContain("dont-pulse");
+  });
+
+  it("does not emit the removed Ward into Pulse cue", () => {
+    const result = resolveVerdantOracleAlerts({
+      ...baseInput,
+      energy: 100,
+      petals: 2,
+    });
+
+    expect(result.map((item) => item.label)).toEqual(["OK TO PULSE"]);
   });
 
   it("lets the EInf into Stag combo override both ready alerts", () => {
@@ -62,7 +58,6 @@ describe("resolveVerdantOracleAlerts", () => {
     expect(VERDANT_ORACLE_ALERT_COLORS).toEqual({
       lowEnergy: "#FFB020",
       criticalEnergy: "#FF3B30",
-      wardPulse: "#00D7FF",
       einfReady: "#7CFF6B",
       stagReady: "#FFD84D",
       einfStag: "#FF4DFF",
