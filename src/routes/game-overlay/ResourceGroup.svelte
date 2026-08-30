@@ -12,6 +12,7 @@
     startResize,
   } from "./overlay-state.svelte.js";
   import { findResourcesByClass } from "$lib/skill-mappings";
+  import VerdantOracleAlerts from "./VerdantOracleAlerts.svelte";
 
   const editing = $derived(isEditing());
   const groupPos = $derived(getGroupPosition("resourceGroup"));
@@ -124,6 +125,10 @@
         </div>
       {/each}
     </div>
+
+    {#if classKey === "verdant_oracle"}
+      <VerdantOracleAlerts />
+    {/if}
   </div>
 
   {#if editing}
