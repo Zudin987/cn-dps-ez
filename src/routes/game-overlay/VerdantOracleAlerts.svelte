@@ -60,7 +60,12 @@
 </script>
 
 {#if visibleAlerts.length > 0}
-  <div class="verdant-alerts" class:combo={lane === "combo"} aria-live="polite">
+  <div
+    class="verdant-alerts"
+    class:petal={lane === "petal"}
+    class:combo={lane === "combo"}
+    aria-live="polite"
+  >
     {#each visibleAlerts as alert (alert.id)}
       <div
         class="verdant-alert"
@@ -103,6 +108,17 @@
     white-space: nowrap;
     text-shadow: 0 0 5px color-mix(in srgb, var(--verdant-alert-color) 55%, transparent);
     box-shadow: 0 0 5px color-mix(in srgb, var(--verdant-alert-color) 32%, transparent);
+  }
+
+  .verdant-alerts.petal .verdant-alert {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    text-shadow:
+      0 0 4px color-mix(in srgb, var(--verdant-alert-color) 80%, transparent),
+      0 0 9px color-mix(in srgb, var(--verdant-alert-color) 58%, transparent);
   }
 
   .verdant-alert.critical-flash {
