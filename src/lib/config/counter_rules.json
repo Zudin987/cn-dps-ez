@@ -1,0 +1,406 @@
+[
+  {
+    "ruleId": 1,
+    "name": "超然触发计数",
+    "sources": [
+      {
+        "damageBySkillKeySelfTarget": {
+          "skillKeys": [22140403],
+          "increment": 1
+        }
+      }
+    ],
+    "effectSlots": [
+      {
+        "slotId": 1,
+        "threshold": 60,
+        "resetBuffId": 2202671,
+        "onBuffAdd": "reset",
+        "onBuffChange": "noOp",
+        "onBuffRemove": "noOp"
+      }
+    ]
+  },
+  {
+    "ruleId": 2,
+    "name": "幻想冲击层数-30-冰法",
+    "sources": [
+      {
+        "damageBySkillKey": {
+          "skillKeys": [2203110203],
+          "increment": 1
+        }
+      }
+    ],
+    "effectSlots": [
+      {
+        "slotId": 1,
+        "threshold": 30,
+        "resetBuffId": 3002011,
+        "onBuffAdd": "resetAndFreeze",
+        "onBuffChange": "noOp",
+        "onBuffRemove": "startCount"
+      }
+    ]
+  },
+  {
+    "ruleId": 3,
+    "name": "幻想冲击层数-30-吉他",
+    "sources": [
+      {
+        "damageBySkillKey": {
+          "skillKeys": [2203111103],
+          "increment": 1
+        }
+      }
+    ],
+    "effectSlots": [
+      {
+        "slotId": 1,
+        "threshold": 30,
+        "resetBuffId": 3002011,
+        "onBuffAdd": "resetAndFreeze",
+        "onBuffChange": "noOp",
+        "onBuffRemove": "startCount"
+      }
+    ]
+  },
+  {
+    "ruleId": 4,
+    "name": "炎角-被动",
+    "sources": [
+      {
+        "skillCastComplete": {
+          "skillBaseIds": [1520, 1519, 1210, 1246, 1240, 1215, 1238, 2308, 2309],
+          "increment": 1
+        }
+      }
+    ],
+    "effectSlots": [
+      {
+        "slotId": 1,
+        "threshold": 3,
+        "displayMode": "remainingToThreshold",
+        "resetBuffId": 3210141,
+        "onBuffAdd": "resetAndStartCount",
+        "onBuffChange": "noOp",
+        "onBuffRemove": "noOp"
+      },
+      {
+        "slotId": 2,
+        "threshold": null,
+        "resetBuffId": 3210141,
+        "onBuffAdd": "freeze",
+        "onBuffChange": "noOp",
+        "onBuffRemove": "noOp",
+        "freezeDurationMs": 15000,
+        "altFreeze": {
+          "conditionBuffId": 2110123,
+          "freezeDurationMs": 5000
+        },
+        "onFreezeExpire": "noOp"
+      }
+    ]
+  },
+  {
+    "ruleId": 5,
+    "name": "岩之心触发计数",
+    "sources": [
+      {
+        "skillCast": {
+          "skillBaseIds": [1937, 1939],
+          "increment": 1
+        }
+      }
+    ],
+    "effectSlots": [
+      {
+        "slotId": 1,
+        "threshold": 10,
+        "resetBuffId": 2201611,
+        "resetSourceConfigId": 2201610,
+        "onBuffAdd": "reset",
+        "onBuffChange": "noOp",
+        "onBuffRemove": "noOp"
+      }
+    ]
+  },
+  {
+    "ruleId": 6,
+    "name": "迷狂劈杀连招计数",
+    "sources": [
+      {
+        "damageBySkillKeyOnce": {
+          "skillKeys": [116130101, 116130103],
+          "increment": 25
+        }
+      }
+    ],
+    "effectSlots": [
+      {
+        "slotId": 1,
+        "threshold": 1000,
+        "displayMode": "percentOfThreshold",
+        "resetBuffId": 2208641,
+        "onBuffAdd": "noOp",
+        "onBuffChange": "noOp",
+        "onBuffRemove": "reset"
+      }
+    ]
+  },
+  {
+    "ruleId": 7,
+    "name": "猛击追击计数",
+    "sources": [
+      {
+        "damageTaken": {
+          "increment": 1
+        }
+      }
+    ],
+    "effectSlots": [
+      {
+        "slotId": 1,
+        "threshold": 50,
+        "displayMode": "remainingToThreshold",
+        "resetBuffId": 0,
+        "resetSkillKeys": [2220154005],
+        "onResetSkill": "resetAndFreezeKeepCounting",
+        "onBuffAdd": "noOp",
+        "onBuffChange": "noOp",
+        "onBuffRemove": "noOp",
+        "freezeDurationMs": 20000,
+        "onFreezeExpire": "noOp",
+        "thresholdModifier": {
+          "attrId": 11940,
+          "basisPointsPerUnit": 1,
+          "maxReductionBasisPoints": 5000
+        },
+        "freezeDurationModifier": {
+          "attrId": 11950,
+          "basisPointsPerUnit": 1,
+          "maxReductionBasisPoints": 5000
+        }
+      }
+    ]
+  },
+  {
+    "ruleId": 8,
+    "name": "岩怒追击计数",
+    "sources": [
+      {
+        "damageTaken": {
+          "increment": 1
+        }
+      }
+    ],
+    "effectSlots": [
+      {
+        "slotId": 1,
+        "threshold": 50,
+        "displayMode": "remainingToThreshold",
+        "resetBuffId": 0,
+        "resetSkillKeys": [2220164005],
+        "onResetSkill": "resetAndFreezeKeepCounting",
+        "onBuffAdd": "noOp",
+        "onBuffChange": "noOp",
+        "onBuffRemove": "noOp",
+        "freezeDurationMs": 20000,
+        "onFreezeExpire": "noOp",
+        "thresholdModifier": {
+          "attrId": 11940,
+          "basisPointsPerUnit": 1,
+          "maxReductionBasisPoints": 5000
+        },
+        "freezeDurationModifier": {
+          "attrId": 11780,
+          "basisPointsPerUnit": 1,
+          "maxReductionBasisPoints": 5000
+        }
+      }
+    ]
+  },
+  {
+    "ruleId": 9,
+    "name": "裁决追击计数-光盾",
+    "sources": [
+      {
+        "damageTaken": {
+          "increment": 1
+        }
+      }
+    ],
+    "effectSlots": [
+      {
+        "slotId": 1,
+        "threshold": 50,
+        "displayMode": "remainingToThreshold",
+        "resetBuffId": 0,
+        "resetSkillKeys": [2220629005],
+        "onResetSkill": "resetAndFreezeKeepCounting",
+        "onBuffAdd": "noOp",
+        "onBuffChange": "noOp",
+        "onBuffRemove": "noOp",
+        "freezeDurationMs": 20000,
+        "onFreezeExpire": "noOp",
+        "thresholdModifier": {
+          "attrId": 11940,
+          "basisPointsPerUnit": 1,
+          "maxReductionBasisPoints": 5000
+        },
+        "freezeDurationModifier": {
+          "attrId": 11930,
+          "basisPointsPerUnit": 1,
+          "maxReductionBasisPoints": 5000
+        }
+      }
+    ]
+  },
+  {
+    "ruleId": 10,
+    "name": "裁决追击计数-防盾",
+    "sources": [
+      {
+        "damageTaken": {
+          "increment": 1
+        }
+      }
+    ],
+    "effectSlots": [
+      {
+        "slotId": 1,
+        "threshold": 50,
+        "displayMode": "remainingToThreshold",
+        "resetBuffId": 0,
+        "resetSkillKeys": [2220668005],
+        "onResetSkill": "resetAndFreezeKeepCounting",
+        "onBuffAdd": "noOp",
+        "onBuffChange": "noOp",
+        "onBuffRemove": "noOp",
+        "freezeDurationMs": 20000,
+        "onFreezeExpire": "noOp",
+        "thresholdModifier": {
+          "attrId": 11940,
+          "basisPointsPerUnit": 1,
+          "maxReductionBasisPoints": 5000
+        },
+        "freezeDurationModifier": {
+          "attrId": 11710,
+          "basisPointsPerUnit": 1,
+          "maxReductionBasisPoints": 5000
+        }
+      }
+    ]
+  },
+  {
+    "ruleId": 11,
+    "name": "N20-治疗机器人冷却",
+    "sources": [],
+    "effectSlots": [
+      {
+        "slotId": 1,
+        "threshold": null,
+        "resetBuffId": 873615,
+        "resetBuffTarget": "anyTeam",
+        "onBuffAdd": "freeze",
+        "onBuffChange": "noOp",
+        "onBuffRemove": "noOp",
+        "freezeDurationMs": 45000,
+        "dungeonStartFreezeMs": 30000,
+        "onFreezeExpire": "noOp"
+      }
+    ]
+  },
+  {
+    "ruleId": 12,
+    "name": "N20-蒂娜降攻冷却",
+    "sources": [],
+    "effectSlots": [
+      {
+        "slotId": 1,
+        "threshold": null,
+        "resetBuffId": 873621,
+        "resetBuffTarget": "anyTeam",
+        "onBuffAdd": "freeze",
+        "onBuffChange": "noOp",
+        "onBuffRemove": "noOp",
+        "freezeDurationMs": 60000,
+        "dungeonStartFreezeMs": 30000,
+        "onFreezeExpire": "noOp"
+      }
+    ]
+  },
+  {
+    "ruleId": 13,
+    "name": "重装S4-自动龙炮",
+    "sources": [
+      {
+        "skillCast": {
+          "skillBaseIds": [1418, 1421, 1430, 1434],
+          "increment": 1
+        }
+      }
+    ],
+    "effectSlots": [
+      {
+        "slotId": 1,
+        "threshold": 8,
+        "displayMode": "remainingToThreshold",
+        "resetBuffId": 2403171,
+        "resetSourceConfigId": 2403170,
+        "onBuffAdd": "reset",
+        "onBuffChange": "noOp",
+        "onBuffRemove": "noOp"
+      }
+    ]
+  },
+  {
+    "ruleId": 14,
+    "name": "重装S4-额外神影螺旋",
+    "sources": [
+      {
+        "skillCast": {
+          "skillBaseIds": [1434],
+          "increment": 1
+        }
+      }
+    ],
+    "effectSlots": [
+      {
+        "slotId": 1,
+        "threshold": 3,
+        "displayMode": "remainingToThreshold",
+        "resetBuffId": 0,
+        "resetPassiveSkillIds": [1434],
+        "onPassiveSkill": "reset",
+        "onBuffAdd": "noOp",
+        "onBuffChange": "noOp",
+        "onBuffRemove": "noOp"
+      }
+    ]
+  },
+  {
+    "ruleId": 15,
+    "name": "射线S4-冰之灌注四件套",
+    "sources": [
+      {
+        "skillCast": {
+          "skillBaseIds": [1243],
+          "increment": 1
+        }
+      }
+    ],
+    "effectSlots": [
+      {
+        "slotId": 1,
+        "threshold": 2,
+        "displayMode": "remainingToThreshold",
+        "resetBuffId": 0,
+        "wrapAtThreshold": true,
+        "onBuffAdd": "noOp",
+        "onBuffChange": "noOp",
+        "onBuffRemove": "noOp"
+      }
+    ]
+  }
+]

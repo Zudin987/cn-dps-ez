@@ -1,0 +1,476 @@
+<script lang="ts">
+  import { getClassIcon, tooltip } from "$lib/utils.svelte";
+  import { SETTINGS, settings } from "$lib/settings-store";
+  import type { DeathRecord } from "$lib/api";
+  import getDisplayName, {
+    normalizeNameDisplaySetting,
+  } from "$lib/name-display";
+  import { formatClassSpecLabel } from "$lib/class-labels";
+  import AbbreviatedNumber from "$lib/components/abbreviated-number.svelte";
+  import PercentFormat from "$lib/components/percent-format.svelte";
+  import TableRowGlow from "$lib/components/table-row-glow.svelte";
+  import { formatDateTime, formatNumber, t } from "$lib/i18n/index.svelte";
+  import { ipcCompare, ipcNumber, ipcRatio, ipcSum } from "$lib/ipc-decimal";
+
+  export type DeathPlayerEntry = {
+    entityUuid: string;
+    displayUid: number;
+    name: string;
+    className: string;
+    classSpecName: string;
+    deaths: DeathRecord[];
+  };
+
+  let {
+    entries,
+    localPlayerUuid = null,
+    onSelect,
+    emptyMessage,
+    variant = "live",
+  }: {
+    entries: DeathPlayerEntry[];
+    localPlayerUuid?: string | null;
+    onSelect: (entityUuid: string) => void;
+    emptyMessage?: string;
+    variant?: "live" | "history";
+  } = $props();
+
+  const SETTINGS_YOUR_NAME = $derived(
+    variant === "history"
+      ? settings.state.history.general.showYourName
+      : settings.state.live.general.showYourName,
+  );
+  const SETTINGS_OTHERS_NAME = $derived(
+    variant === "history"
+      ? settings.state.history.general.showOthersName
+      : settings.state.live.general.showOthersName,
+  );
+
+  const tableSettings = $derived(SETTINGS.live.tableCustomization.state);
+  const customThemeColors = $derived(
+    SETTINGS.live.appearance.state.themeColors,
+  );
+  const compactMode = $derived(
+    variant === "live" ? tableSettings.compactMode : false,
+  );
+  const shortenTps = $derived(
+    variant === "history"
+      ? SETTINGS.history.general.state.shortenTps
+      : SETTINGS.live.general.state.shortenTps,
+  );
+  const abbreviatedDecimalPlaces = $derived(
+    variant === "history"
+      ? (SETTINGS.history.general.state.abbreviatedDecimalPlaces ?? 1)
+      : (SETTINGS.live.general.state.abbreviatedDecimalPlaces ?? 1),
+  );
+  const abbreviationStyle = $derived(
+    variant === "history"
+      ? SETTINGS.history.general.state.abbreviationStyle
+      : SETTINGS.live.general.state.abbreviationStyle,
+  );
+  const displayEmptyMessage = $derived(
+    emptyMessage ?? t("components.deathReplay.empty.default"),
+  );
+
+  type ComputedRow = {
+    entry: DeathPlayerEntry;
+    deathCount: number;
+    totalTaken: number;
+    totalTakenExact: bigint;
+    latestMs: number;
+  };
+
+  const aggregatedRows = $derived.by<ComputedRow[]>(() =>
+    entries
+      .filter((e) => e.deaths.length > 0)
+      .map((entry) => {
+        let totalTakenExact = 0n;
+        let latest = 0;
+        for (const death of entry.deaths) {
+          const t = ipcNumber(death.deathTimestampMs);
+          if (t > latest) latest = t;
+          totalTakenExact += ipcSum(
+            (death.recentDamages ?? []).map((damage) => damage.value),
+          );
+        }
+        return {
+          entry,
+          deathCount: entry.deaths.length,
+          totalTaken: ipcNumber(totalTakenExact),
+          totalTakenExact,
+          latestMs: latest,
+        };
+      }),
+  );
+
+  // Sorting (default: death count desc, then most recent death desc).
+  const sortedRows = $derived.by(() =>
+    [...aggregatedRows].sort((a, b) => {
+      if (compactMode && variant === "live") {
+        // Mirror DPS compact: sort by primary metric (totalTaken) desc.
+        return ipcCompare(b.totalTakenExact, a.totalTakenExact);
+      }
+      const diff = b.deathCount - a.deathCount;
+      if (diff !== 0) return diff;
+      return b.latestMs - a.latestMs;
+    }),
+  );
+
+  const maxTotalTaken = $derived(
+    sortedRows.reduce(
+      (max, row) =>
+        ipcCompare(row.totalTakenExact, max) > 0 ? row.totalTakenExact : max,
+      0n,
+    ),
+  );
+  const totalTakenAcrossAll = $derived(
+    ipcSum(sortedRows.map((row) => row.totalTakenExact)),
+  );
+
+  function formatAbsoluteTime(ms: number): string {
+    return (
+      formatDateTime(ms, {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      }) || String(ms)
+    );
+  }
+
+  function resolveDisplayName(entry: DeathPlayerEntry) {
+    const isLocal =
+      localPlayerUuid != null && entry.entityUuid === localPlayerUuid;
+    return {
+      isLocal,
+      displayName:
+        getDisplayName({
+          player: {
+            entityUuid: entry.entityUuid,
+            displayUid: entry.displayUid,
+            name: entry.name,
+            className: entry.className,
+            classSpecName: entry.classSpecName,
+          },
+          showYourNameSetting: SETTINGS_YOUR_NAME,
+          showOthersNameSetting: SETTINGS_OTHERS_NAME,
+          isLocalPlayer: isLocal,
+        }) || `#${entry.displayUid}`,
+      className: (() => {
+        const setting = normalizeNameDisplaySetting(
+          isLocal ? SETTINGS_YOUR_NAME : SETTINGS_OTHERS_NAME,
+        );
+        const hidden = isLocal
+          ? setting === "Hide Your Name"
+          : setting === "Hide Others' Name";
+        return hidden ? "" : entry.className;
+      })(),
+    };
+  }
+
+  function pctOfTotal(totalTaken: bigint): number {
+    return ipcRatio(totalTaken, totalTakenAcrossAll, 100);
+  }
+
+  function glowPercentage(totalTaken: bigint): number {
+    return ipcRatio(totalTaken, maxTotalTaken, 100);
+  }
+</script>
+
+{#if variant === "history"}
+  <div class="overflow-x-auto rounded border border-border/60 bg-card/30">
+    <table class="w-full border-collapse">
+      <thead>
+        <tr class="bg-popover/60">
+          <th
+            class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground"
+            >{t("components.deathReplay.table.player")}</th
+          >
+          <th
+            class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground"
+            >{t("components.deathReplay.table.deathCount")}</th
+          >
+          <th
+            class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground"
+            >{t("components.deathReplay.table.totalTaken")}</th
+          >
+          <th
+            class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground"
+            >{t("components.deathReplay.table.share")}</th
+          >
+          <th
+            class="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground"
+            >{t("components.deathReplay.table.latestDeath")}</th
+          >
+        </tr>
+      </thead>
+      <tbody>
+        {#if sortedRows.length === 0}
+          <tr>
+            <td
+              colspan="5"
+              class="px-3 py-8 text-center text-xs text-muted-foreground"
+            >
+              {displayEmptyMessage}
+            </td>
+          </tr>
+        {:else}
+          {#each sortedRows as row (row.entry.entityUuid)}
+            {@const info = resolveDisplayName(row.entry)}
+            <tr
+              class="relative border-t border-border/40 hover:bg-muted/60 transition-colors cursor-pointer"
+              onclick={() => onSelect(row.entry.entityUuid)}
+            >
+              <td class="px-3 py-3 text-sm text-muted-foreground relative z-10">
+                <div class="flex items-center gap-2 h-full">
+                  <img
+                    class="size-5 object-contain"
+                    src={getClassIcon(info.className)}
+                    alt={t("components.deathReplay.classIconAlt")}
+                    {@attach tooltip(
+                      () =>
+                        formatClassSpecLabel(
+                          row.entry.className,
+                          row.entry.classSpecName,
+                        ) || t("components.deathReplay.unknownClass"),
+                    )}
+                  />
+                  <span
+                    class="truncate"
+                    {@attach tooltip(() =>
+                      t("components.deathReplay.uidTooltip", {
+                        uid: row.entry.displayUid,
+                      }),
+                    )}
+                  >
+                    {info.displayName}
+                  </span>
+                </div>
+              </td>
+              <td
+                class="px-3 py-3 text-right text-sm text-muted-foreground relative z-10 tabular-nums"
+                >{formatNumber(row.deathCount)}</td
+              >
+              <td
+                class="px-3 py-3 text-right text-sm text-muted-foreground relative z-10 tabular-nums"
+              >
+                {#if shortenTps}
+                  <AbbreviatedNumber
+                    num={row.totalTaken}
+                    decimalPlaces={abbreviatedDecimalPlaces}
+                    {abbreviationStyle}
+                  />
+                {:else}
+                  {formatNumber(row.totalTaken)}
+                {/if}
+              </td>
+              <td
+                class="px-3 py-3 text-right text-sm text-muted-foreground relative z-10 tabular-nums"
+              >
+                <PercentFormat
+                  val={pctOfTotal(row.totalTakenExact)}
+                  fractionDigits={0}
+                />
+              </td>
+              <td
+                class="px-3 py-3 text-right text-sm text-muted-foreground relative z-10 tabular-nums"
+                >{formatAbsoluteTime(row.latestMs)}</td
+              >
+              <TableRowGlow
+                className={info.className}
+                classSpecName={row.entry.classSpecName}
+                percentage={glowPercentage(row.totalTakenExact)}
+              />
+            </tr>
+          {/each}
+        {/if}
+      </tbody>
+    </table>
+  </div>
+{:else}
+  <div
+    class="relative flex flex-col overflow-hidden rounded-lg ring-1 ring-border/60 bg-card/30"
+  >
+    {#if sortedRows.length === 0}
+      <div
+        class="flex h-32 items-center justify-center text-muted-foreground text-xs"
+      >
+        {displayEmptyMessage}
+      </div>
+    {:else}
+      <table class="w-full border-collapse">
+        {#if !compactMode && tableSettings.showTableHeader}
+          <thead>
+            <tr
+              class="bg-popover/60"
+              style="height: {tableSettings.tableHeaderHeight}px;"
+            >
+              <th
+                class="px-3 py-1 text-left font-medium uppercase tracking-wide"
+                style="font-size: {tableSettings.tableHeaderFontSize}px; color: {tableSettings.tableHeaderTextColor};"
+                >{t("components.deathReplay.table.player")}</th
+              >
+              <th
+                class="px-3 py-1 text-right font-medium uppercase tracking-wide"
+                style="font-size: {tableSettings.tableHeaderFontSize}px; color: {tableSettings.tableHeaderTextColor};"
+                >{t("components.deathReplay.table.deathCount")}</th
+              >
+              <th
+                class="px-3 py-1 text-right font-medium uppercase tracking-wide"
+                style="font-size: {tableSettings.tableHeaderFontSize}px; color: {tableSettings.tableHeaderTextColor};"
+                >{t("components.deathReplay.table.totalTaken")}</th
+              >
+              <th
+                class="px-3 py-1 text-right font-medium uppercase tracking-wide"
+                style="font-size: {tableSettings.tableHeaderFontSize}px; color: {tableSettings.tableHeaderTextColor};"
+                >{t("components.deathReplay.table.share")}</th
+              >
+            </tr>
+          </thead>
+        {/if}
+        <tbody>
+          {#each sortedRows as row (row.entry.entityUuid)}
+            {@const info = resolveDisplayName(row.entry)}
+            {#if compactMode}
+              <tr
+                class="relative hover:bg-muted/60 transition-colors cursor-pointer group"
+                style="height: {tableSettings.playerRowHeight}px; font-size: {tableSettings.playerFontSize}px;"
+                onclick={() => onSelect(row.entry.entityUuid)}
+              >
+                <td class="px-3 py-1 relative z-10">
+                  <div class="flex items-center h-full gap-2">
+                    <img
+                      style="width: {tableSettings.playerIconSize}px; height: {tableSettings.playerIconSize}px;"
+                      class="object-contain shrink-0"
+                      src={getClassIcon(info.className)}
+                      alt={t("components.deathReplay.classIconAlt")}
+                      {@attach tooltip(
+                        () =>
+                          formatClassSpecLabel(
+                            row.entry.className,
+                            row.entry.classSpecName,
+                          ) || t("components.deathReplay.unknownClass"),
+                      )}
+                    />
+                    <span
+                      class="truncate font-medium flex-1 min-w-0"
+                      style="color: {customThemeColors.tableTextColor};"
+                      >{info.displayName}</span
+                    >
+                    <span
+                      class="inline-flex items-center gap-1 tabular-nums font-medium shrink-0"
+                      style="color: {customThemeColors.tableTextColor};"
+                    >
+                      <span class="inline-flex items-baseline">
+                        {#if shortenTps}
+                          <AbbreviatedNumber
+                            num={row.totalTaken}
+                            decimalPlaces={abbreviatedDecimalPlaces}
+                            {abbreviationStyle}
+                            suffixFontSize={tableSettings.abbreviatedFontSize}
+                            suffixColor={customThemeColors.tableAbbreviatedColor}
+                          />
+                          <span class="opacity-70">(</span>
+                          <span>
+                            {t("components.deathReplay.deathCountText", {
+                              count: formatNumber(row.deathCount),
+                            })}
+                          </span>
+                          <span class="opacity-70">)</span>
+                        {:else}
+                          {formatNumber(row.totalTaken)}<span class="opacity-70"
+                            >({t("components.deathReplay.deathCountText", {
+                              count: formatNumber(row.deathCount),
+                            })})</span
+                          >
+                        {/if}
+                      </span>
+                      <span class="w-12 text-right">
+                        <PercentFormat
+                          val={pctOfTotal(row.totalTakenExact)}
+                          fractionDigits={0}
+                          suffixFontSize={tableSettings.abbreviatedFontSize}
+                          suffixColor={customThemeColors.tableAbbreviatedColor}
+                        />
+                      </span>
+                    </span>
+                  </div>
+                </td>
+                <TableRowGlow
+                  className={info.className}
+                  classSpecName={row.entry.classSpecName}
+                  percentage={glowPercentage(row.totalTakenExact)}
+                />
+              </tr>
+            {:else}
+              <tr
+                class="relative hover:bg-muted/60 transition-colors cursor-pointer group"
+                style="height: {tableSettings.playerRowHeight}px; font-size: {tableSettings.playerFontSize}px;"
+                onclick={() => onSelect(row.entry.entityUuid)}
+              >
+                <td class="px-3 py-1 relative z-10">
+                  <div class="flex items-center h-full gap-2">
+                    <img
+                      style="width: {tableSettings.playerIconSize}px; height: {tableSettings.playerIconSize}px;"
+                      class="object-contain"
+                      src={getClassIcon(info.className)}
+                      alt={t("components.deathReplay.classIconAlt")}
+                      {@attach tooltip(
+                        () =>
+                          formatClassSpecLabel(
+                            row.entry.className,
+                            row.entry.classSpecName,
+                          ) || t("components.deathReplay.unknownClass"),
+                      )}
+                    />
+                    <span
+                      class="truncate font-medium"
+                      style="color: {customThemeColors.tableTextColor};"
+                      >{info.displayName}</span
+                    >
+                  </div>
+                </td>
+                <td
+                  class="px-3 py-1 text-right relative z-10 tabular-nums font-medium"
+                  style="color: {customThemeColors.tableTextColor};"
+                  >{formatNumber(row.deathCount)}</td
+                >
+                <td
+                  class="px-3 py-1 text-right relative z-10 tabular-nums font-medium"
+                  style="color: {customThemeColors.tableTextColor};"
+                >
+                  {#if shortenTps}
+                    <AbbreviatedNumber
+                      num={row.totalTaken}
+                      decimalPlaces={abbreviatedDecimalPlaces}
+                      {abbreviationStyle}
+                      suffixFontSize={tableSettings.abbreviatedFontSize}
+                      suffixColor={customThemeColors.tableAbbreviatedColor}
+                    />
+                  {:else}
+                    {formatNumber(row.totalTaken)}
+                  {/if}
+                </td>
+                <td
+                  class="px-3 py-1 text-right relative z-10 tabular-nums font-medium"
+                  style="color: {customThemeColors.tableTextColor};"
+                >
+                  <PercentFormat
+                    val={pctOfTotal(row.totalTakenExact)}
+                    fractionDigits={0}
+                    suffixFontSize={tableSettings.abbreviatedFontSize}
+                    suffixColor={customThemeColors.tableAbbreviatedColor}
+                  />
+                </td>
+                <TableRowGlow
+                  className={info.className}
+                  classSpecName={row.entry.classSpecName}
+                  percentage={glowPercentage(row.totalTakenExact)}
+                />
+              </tr>
+            {/if}
+          {/each}
+        </tbody>
+      </table>
+    {/if}
+  </div>
+{/if}

@@ -1,0 +1,540 @@
+import type {
+  BuffUpdateState,
+  CounterSlotState,
+  CounterUpdateState,
+  SkillCdState,
+} from "$lib/api";
+import { formatNumber, t } from "$lib/i18n/index.svelte";
+export {
+  ensureCustomPanelEntries,
+  ensureCustomPanelGroups,
+  ensureInlineBuffEntries,
+} from "$lib/custom-panel-utils";
+export {
+  DEFAULT_OVERLAY_SIZES,
+  ensureBuffGroup,
+  ensureBuffGroups,
+  ensureCustomPanelStyle,
+  ensureIndividualMonitorAllGroup,
+  ensureOverlaySizes,
+  ensurePanelAreaRowOrder,
+  ensurePanelAttrs,
+  ensureShieldDetailStyle,
+  ensureTextBuffPanelStyle,
+} from "$lib/skill-monitor-normalize";
+import { ensurePanelAreaRowOrder } from "$lib/skill-monitor-normalize";
+import type {
+  BuffAlertRule,
+  InlineBuffEntry,
+  OverlayPositions,
+  OverlayVisibility,
+  PanelAttrConfig,
+  SkillMonitorProfile,
+} from "$lib/settings-store";
+import {
+  findAnySkillByBaseId,
+  type CounterRulePreset,
+} from "$lib/skill-mappings";
+import {
+  DEFAULT_OVERLAY_POSITIONS,
+  DEFAULT_OVERLAY_VISIBILITY,
+  DEFAULT_RESOURCE_VALUES_BY_CLASS,
+  RESOURCE_SCALES_BY_CLASS,
+} from "./overlay-constants";
+import type {
+  BuffAlertState,
+  CustomPanelDisplayRow,
+  PanelAreaDisplayRow,
+  SkillDisplay,
+  TextBuffDisplay,
+} from "./overlay-types";
+import type { HudTemporalValue } from "$lib/hud-temporal.svelte.js";
+
+type BuffAlertResolver = (baseId: number) => BuffAlertRule | undefined;
+
+export function ensureOverlayPositions(
+  profile: SkillMonitorProfile,
+): OverlayPositions {
+  const current = profile.overlayPositions;
+  return {
+    skillCdGroup:
+      current?.skillCdGroup ?? DEFAULT_OVERLAY_POSITIONS.skillCdGroup,
+    resourceGroup:
+      current?.resourceGroup ?? DEFAULT_OVERLAY_POSITIONS.resourceGroup,
+    textBuffPanel:
+      current?.textBuffPanel ?? DEFAULT_OVERLAY_POSITIONS.textBuffPanel,
+    specialBuffGroup:
+      current?.specialBuffGroup ?? DEFAULT_OVERLAY_POSITIONS.specialBuffGroup,
+    panelAttrGroup:
+      current?.panelAttrGroup ?? DEFAULT_OVERLAY_POSITIONS.panelAttrGroup,
+    customPanelGroup:
+      current?.customPanelGroup ?? DEFAULT_OVERLAY_POSITIONS.customPanelGroup,
+    shieldDetailGroup:
+      current?.shieldDetailGroup ?? DEFAULT_OVERLAY_POSITIONS.shieldDetailGroup,
+    buffCoverageGroup:
+      current?.buffCoverageGroup ?? DEFAULT_OVERLAY_POSITIONS.buffCoverageGroup,
+    iconBuffPositions: current?.iconBuffPositions ?? {},
+    skillDurationPositions: current?.skillDurationPositions ?? {},
+    categoryIconPositions: current?.categoryIconPositions ?? {},
+  };
+}
+
+export function ensureOverlayVisibility(
+  profile: SkillMonitorProfile,
+): OverlayVisibility {
+  const current = profile.overlayVisibility;
+  return {
+    showSkillCdGroup:
+      current?.showSkillCdGroup ?? DEFAULT_OVERLAY_VISIBILITY.showSkillCdGroup,
+    showSkillDurationGroup:
+      current?.showSkillDurationGroup ??
+      DEFAULT_OVERLAY_VISIBILITY.showSkillDurationGroup,
+    showResourceGroup:
+      current?.showResourceGroup ??
+      DEFAULT_OVERLAY_VISIBILITY.showResourceGroup,
+    showPanelAttrGroup:
+      current?.showPanelAttrGroup ??
+      DEFAULT_OVERLAY_VISIBILITY.showPanelAttrGroup,
+    showCustomPanelGroup:
+      current?.showCustomPanelGroup ??
+      DEFAULT_OVERLAY_VISIBILITY.showCustomPanelGroup,
+    showShieldDetailGroup:
+      current?.showShieldDetailGroup ??
+      DEFAULT_OVERLAY_VISIBILITY.showShieldDetailGroup,
+    showBuffCoverageGroup:
+      current?.showBuffCoverageGroup ??
+      DEFAULT_OVERLAY_VISIBILITY.showBuffCoverageGroup,
+  };
+}
+
+export function formatAttrValue(
+  value: number,
+  format: PanelAttrConfig["format"],
+): string {
+  if (format === "integer") {
+    return formatNumber(value);
+  }
+  return `${(value / 100).toFixed(2)}%`;
+}
+
+export function getBuffRemainingMs(
+  buff: BuffUpdateState | undefined,
+  now: number,
+): number {
+  if (!buff) return 0;
+  if (buff.durationMs <= 0) return Number.POSITIVE_INFINITY;
+  const end = buff.createTimeMs + buff.durationMs;
+  return Math.max(0, end - now);
+}
+
+export function isBuffActive(
+  buff: BuffUpdateState | undefined,
+  now: number,
+): boolean {
+  if (!buff) return false;
+  if (buff.durationMs <= 0) return true;
+  return buff.createTimeMs + buff.durationMs > now;
+}
+
+export function formatTimerText(remainingMs: number): string {
+  if (!Number.isFinite(remainingMs)) return t("gameOverlay.timer.infinite");
+  if (remainingMs <= 0) return t("gameOverlay.timer.empty");
+  if (remainingMs <= 60_000) {
+    return t("gameOverlay.timer.seconds", {
+      value: formatTenthsDown(remainingMs / 1000),
+    });
+  }
+  if (remainingMs <= 3_600_000) {
+    return t("gameOverlay.timer.minutes", {
+      value: formatTenthsDown(remainingMs / 60_000),
+    });
+  }
+  return t("gameOverlay.timer.hours", {
+    value: formatTenthsDown(remainingMs / 3_600_000),
+  });
+}
+
+export function getBuffRemainPercent(
+  buff: BuffUpdateState | undefined,
+  now: number,
+): number {
+  if (!buff || buff.durationMs <= 0) return 0;
+  return Math.max(
+    0,
+    Math.min(100, (getBuffRemainingMs(buff, now) / buff.durationMs) * 100),
+  );
+}
+
+export function resolveAlertState(
+  rule: BuffAlertRule | undefined,
+  remainingMs: number,
+  durationMs: number,
+): BuffAlertState | undefined {
+  if (!rule || durationMs <= 0) return undefined;
+  if (remainingMs > rule.thresholdSeconds * 1000) return undefined;
+  return alertStateFromRule(rule);
+}
+
+function alertStateFromRule(rule: BuffAlertRule): BuffAlertState {
+  return {
+    highlightColor: rule.highlightColor,
+    flash: rule.flash,
+    flashIntervalMs: rule.flashIntervalMs ?? 600,
+    applyToProgress: rule.applyToProgress ?? true,
+  };
+}
+
+export function getBuffTemporalValue(
+  buff: BuffUpdateState | undefined,
+  alertRule?: BuffAlertRule,
+): HudTemporalValue | undefined {
+  if (!buff || buff.durationMs <= 0) return undefined;
+  return {
+    deadlineMs: buff.createTimeMs + buff.durationMs,
+    durationMs: buff.durationMs,
+    ...(alertRule
+      ? {
+          alert: {
+            thresholdMs: alertRule.thresholdSeconds * 1000,
+            state: alertStateFromRule(alertRule),
+          },
+        }
+      : {}),
+  };
+}
+
+/**
+ * Appends the fantasy (resonance echo) tier that applied this buff, e.g.
+ * "冷却缩减" -> "冷却缩减 | 5阶", when `buff.sourceRemodelLevel` is known.
+ */
+export function withFantasyTierSuffix(
+  name: string,
+  buff: BuffUpdateState,
+): string {
+  if (buff.sourceRemodelLevel == null) return name;
+  return t("gameOverlay.buff.fantasyTierSuffix", {
+    name,
+    level: buff.sourceRemodelLevel,
+  });
+}
+
+export function buildBuffTextRow(
+  key: string,
+  label: string,
+  buff: BuffUpdateState,
+  now: number,
+  isPlaceholder = false,
+  forceShow = false,
+  alertResolver?: BuffAlertResolver,
+): TextBuffDisplay | null {
+  const active = isBuffActive(buff, now);
+  if (!active && !isPlaceholder) return null;
+
+  if (buff.durationMs <= 0 && buff.layer <= 1 && !isPlaceholder && !forceShow) {
+    return null;
+  }
+
+  const remainingMs = getBuffRemainingMs(buff, now);
+  const layer = Math.max(1, buff.layer);
+  const alertRule = isPlaceholder ? undefined : alertResolver?.(buff.baseId);
+  const alert = isPlaceholder
+    ? undefined
+    : resolveAlertState(alertRule, remainingMs, buff.durationMs);
+  const temporal = isPlaceholder
+    ? undefined
+    : getBuffTemporalValue(buff, alertRule);
+
+  return {
+    key,
+    label,
+    valueText: isPlaceholder
+      ? t("gameOverlay.timer.empty")
+      : formatTimerText(remainingMs),
+    metaText: layer > 1 ? `x${layer}` : undefined,
+    progressPercent: isPlaceholder ? 0 : getBuffRemainPercent(buff, now),
+    showProgress: !isPlaceholder && buff.durationMs > 0,
+    ...(isPlaceholder ? { isPlaceholder: true } : {}),
+    ...(alert ? { alert } : {}),
+    ...(temporal ? { temporal } : {}),
+  };
+}
+
+function formatCounterCountText(
+  slotState: CounterSlotState,
+  slotConfig?: CounterRulePreset["effectSlots"][number],
+): string {
+  const threshold = slotState.effectiveThreshold ?? slotState.threshold;
+  if (
+    slotConfig?.displayMode === "percentOfThreshold" &&
+    threshold !== null &&
+    threshold > 0
+  ) {
+    const ratio = Math.min(1, Math.max(0, slotState.currentCount / threshold));
+    const percent = Math.round(ratio * 1000) / 10;
+    return Number.isInteger(percent) ? `${percent}%` : `${percent.toFixed(1)}%`;
+  }
+  if (
+    slotConfig?.displayMode === "remainingToThreshold" &&
+    threshold !== null
+  ) {
+    return `${Math.max(0, threshold - slotState.currentCount)}`;
+  }
+  if (
+    slotConfig?.displayMode === "rawWithThreshold" &&
+    threshold !== null &&
+    threshold > 0
+  ) {
+    return `${Math.max(0, slotState.currentCount)}/${threshold}`;
+  }
+  return `${Math.max(0, slotState.currentCount)}`;
+}
+
+export function getCustomPanelDisplayRow(
+  entry: InlineBuffEntry,
+  now: number,
+  buffMap: Map<number, BuffUpdateState>,
+  counterMap: Map<number, CounterUpdateState>,
+  counterRuleMap: Map<number, CounterRulePreset>,
+  resolveBuffName: (baseId: number) => string,
+  alertResolver?: BuffAlertResolver,
+): CustomPanelDisplayRow | null {
+  if (entry.sourceType === "buff") {
+    const buff = buffMap.get(entry.sourceId);
+    if (!buff) return null;
+    return buildBuffTextRow(
+      `inline_buff_${entry.id}`,
+      withFantasyTierSuffix(resolveBuffName(entry.sourceId), buff),
+      buff,
+      now,
+      false,
+      true,
+      alertResolver,
+    );
+  }
+
+  const counter = counterMap.get(entry.sourceId);
+  const rule = counterRuleMap.get(entry.sourceId);
+  const selectedSlotId =
+    entry.counterSlotId ??
+    counter?.slots[0]?.slotId ??
+    rule?.effectSlots[0]?.slotId;
+  const selectedSlot =
+    counter?.slots.find((slot) => slot.slotId === selectedSlotId) ??
+    counter?.slots[0];
+  const slotConfig =
+    rule?.effectSlots.find((slot) => slot.slotId === selectedSlotId) ??
+    rule?.effectSlots[0];
+  const linkedBuff = buffMap.get(slotConfig?.resetBuffId ?? -1);
+  if (!counter || !selectedSlot) {
+    if (entry.hideWhenZero === true) {
+      return null;
+    }
+    return {
+      key: `counter_${entry.id}`,
+      label: entry.label,
+      valueText: t("gameOverlay.timer.empty"),
+      progressPercent: 0,
+      showProgress: false,
+    };
+  }
+  const fixedFreezeUntilMs = selectedSlot.freezeUntilMs;
+  if (
+    fixedFreezeUntilMs !== null &&
+    fixedFreezeUntilMs !== undefined &&
+    fixedFreezeUntilMs > now
+  ) {
+    const fixedRemainingMs = Math.max(0, fixedFreezeUntilMs - now);
+    const freezeDurationMs =
+      selectedSlot.effectiveFreezeDurationMs ??
+      selectedSlot.freezeDurationMs ??
+      0;
+    const progressPercent =
+      freezeDurationMs > 0
+        ? Math.max(
+            0,
+            Math.min(100, (fixedRemainingMs / freezeDurationMs) * 100),
+          )
+        : 0;
+    return {
+      key: `inline_counter_${entry.id}`,
+      label: entry.label,
+      valueText: formatTimerText(fixedRemainingMs),
+      metaText: t("gameOverlay.counter.cooling"),
+      progressPercent,
+      showProgress: freezeDurationMs > 0,
+      ...(freezeDurationMs > 0
+        ? {
+            temporal: {
+              deadlineMs: fixedFreezeUntilMs,
+              durationMs: freezeDurationMs,
+            },
+          }
+        : {}),
+    };
+  }
+  if (selectedSlot.isCounting) {
+    if (entry.hideWhenZero === true && selectedSlot.currentCount === 0) {
+      return null;
+    }
+    return {
+      key: `inline_counter_${entry.id}`,
+      label: entry.label,
+      valueText: formatCounterCountText(selectedSlot, slotConfig),
+      metaText: undefined,
+      progressPercent: 0,
+      showProgress: false,
+    };
+  }
+  const active = selectedSlot.resetBuffActive ?? isBuffActive(linkedBuff, now);
+  const remainingMs = getBuffRemainingMs(linkedBuff, now);
+  if (entry.hideWhenZero === true && !active) {
+    return null;
+  }
+  return {
+    key: `inline_counter_${entry.id}`,
+    label: entry.label,
+    valueText: active
+      ? formatTimerText(remainingMs)
+      : t("gameOverlay.timer.empty"),
+    metaText: t("gameOverlay.counter.cooling"),
+    progressPercent: getBuffRemainPercent(linkedBuff, now),
+    showProgress: active && Boolean(linkedBuff && linkedBuff.durationMs > 0),
+    ...(active && linkedBuff
+      ? { temporal: getBuffTemporalValue(linkedBuff) }
+      : {}),
+  };
+}
+
+export function buildPanelAreaRows(
+  activeProfile: SkillMonitorProfile | null,
+  enabledPanelAttrs: PanelAttrConfig[],
+): PanelAreaDisplayRow[] {
+  if (!activeProfile) return [];
+  const rows = ensurePanelAreaRowOrder(activeProfile, enabledPanelAttrs);
+  const result: PanelAreaDisplayRow[] = [];
+  for (const row of rows) {
+    const attr = enabledPanelAttrs.find((item) => item.attrId === row.attrId);
+    if (attr) {
+      result.push({ key: `attr_${attr.attrId}`, attr });
+    }
+  }
+  for (const attr of enabledPanelAttrs) {
+    if (!result.some((row) => row.attr.attrId === attr.attrId)) {
+      result.push({ key: `attr_${attr.attrId}`, attr });
+    }
+  }
+  return result;
+}
+
+export function computeDisplay(
+  selectedClassKey: string,
+  skillId: number,
+  cd: SkillCdState,
+  now: number,
+): SkillDisplay | null {
+  const skill = findAnySkillByBaseId(selectedClassKey, skillId);
+  const cdAccelerateRate = Math.max(0, cd.cdAccelerateRate ?? 0);
+  const elapsed = Math.max(0, now - cd.receivedAt);
+  const baseDuration = cd.duration > 0 ? Math.max(1, cd.duration) : 1;
+  const reducedDuration =
+    cd.duration > 0 ? Math.max(0, cd.calculatedDuration) : 0;
+  const validCdScale = cd.duration > 0 ? reducedDuration / baseDuration : 1;
+  const scaledValidCdTime = cd.validCdTime * validCdScale;
+  const progressed = scaledValidCdTime + elapsed * (1 + cdAccelerateRate);
+
+  if (cd.duration === -1 && cd.skillCdType === 1) {
+    if (!skill?.maxValidCdTime) return null;
+    const chargePercent = Math.max(
+      0,
+      Math.min(1, cd.validCdTime / skill.maxValidCdTime),
+    );
+    return {
+      isActive: chargePercent < 1,
+      percent: 1 - chargePercent,
+      text: `${Math.round(chargePercent * 100)}%`,
+      usable: chargePercent >= 1,
+    };
+  }
+
+  if (cd.skillCdType === 1 && cd.duration > 0) {
+    const maxCharges = Math.max(1, skill?.maxCharges ?? 1);
+    if (maxCharges > 1) {
+      const chargeDuration = Math.max(1, cd.calculatedDuration);
+      const maxVct = maxCharges * chargeDuration;
+      const currentVct = Math.min(maxVct, progressed);
+      const chargesAvailable = Math.min(
+        maxCharges,
+        Math.floor(currentVct / chargeDuration),
+      );
+      const chargesOnCd = Math.max(0, maxCharges - chargesAvailable);
+      if (chargesOnCd <= 0) {
+        return {
+          isActive: false,
+          percent: 0,
+          text: "",
+          chargesText: `${maxCharges}/${maxCharges}`,
+          usable: true,
+          chargesAvailable: maxCharges,
+          maxCharges,
+        };
+      }
+      const timeToNextCharge = Math.max(
+        0,
+        chargeDuration - (currentVct % chargeDuration),
+      );
+      return {
+        isActive: chargesOnCd > 0,
+        percent: Math.min(1, timeToNextCharge / chargeDuration),
+        text: formatTenthsDown(timeToNextCharge / 1000),
+        chargesText: `${chargesAvailable}/${maxCharges}`,
+        usable: chargesAvailable >= 1,
+        chargesAvailable,
+        maxCharges,
+      };
+    }
+  }
+
+  const remaining =
+    reducedDuration > 0 ? Math.max(0, reducedDuration - progressed) : 0;
+  const duration = reducedDuration > 0 ? reducedDuration : 1;
+  return {
+    isActive: remaining > 0,
+    percent: remaining > 0 ? Math.min(1, remaining / duration) : 0,
+    text: remaining > 0 ? formatTenthsDown(remaining / 1000) : "",
+    usable: remaining <= 0,
+  };
+}
+
+export function getResourceValue(
+  fightResMap: Map<number, number>,
+  selectedClassKey: string,
+  resourceId: number,
+): number {
+  const raw = fightResMap.get(resourceId);
+  if (raw === undefined) {
+    return (
+      DEFAULT_RESOURCE_VALUES_BY_CLASS[selectedClassKey]?.[resourceId] ?? 0
+    );
+  }
+  const scale = RESOURCE_SCALES_BY_CLASS[selectedClassKey]?.[resourceId] ?? 1;
+  return Math.floor(raw / scale);
+}
+
+export function getResourcePreciseValue(
+  fightResMap: Map<number, number>,
+  selectedClassKey: string,
+  resourceId: number,
+): number {
+  const raw = fightResMap.get(resourceId);
+  if (raw === undefined) {
+    return (
+      DEFAULT_RESOURCE_VALUES_BY_CLASS[selectedClassKey]?.[resourceId] ?? 0
+    );
+  }
+  const scale = RESOURCE_SCALES_BY_CLASS[selectedClassKey]?.[resourceId] ?? 1;
+  return raw / scale;
+}
+
+function formatTenthsDown(value: number): string {
+  return (Math.floor(Math.max(0, value) * 10) / 10).toFixed(1);
+}
