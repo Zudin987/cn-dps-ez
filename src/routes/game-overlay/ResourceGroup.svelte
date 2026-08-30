@@ -1,7 +1,9 @@
 <script lang="ts">
   import { t } from "$lib/i18n/index.svelte";
   import {
+    activeBuffIds,
     buffDurationPercents,
+    buffMap,
     getGroupPosition,
     getGroupScale,
     getResourcePreciseValue,
@@ -14,16 +16,33 @@
   import { findResourcesByClass } from "$lib/skill-mappings";
   import VerdantOracleAlerts from "./VerdantOracleAlerts.svelte";
 
+  const VERDANT_SEED_TRIGGER_BUFF_ID = 2202251;
+
   const editing = $derived(isEditing());
   const groupPos = $derived(getGroupPosition("resourceGroup"));
   const groupScale = $derived(getGroupScale("resourceGroupScale"));
   const classKey = $derived(selectedClassKey());
   const durationPercents = $derived(buffDurationPercents());
+  const activeIds = $derived(activeBuffIds());
+  const buffs = $derived(buffMap());
   const resources = $derived(findResourcesByClass(classKey));
   const barResources = $derived(resources.filter((res) => res.type === "bar"));
   const chargeResources = $derived(
     resources.filter((res) => res.type === "charges"),
   );
+  const seedTriggerCounter = $derived.by(() => {
+    if (
+      classKey !== "verdant_oracle" ||
+      !activeIds.has(VERDANT_SEED_TRIGGER_BUFF_ID)
+    ) {
+      return 0;
+    }
+
+    return Math.min(
+      9,
+      Math.max(0, buffs.get(VERDANT_SEED_TRIGGER_BUFF_ID)?.layer ?? 0),
+    );
+  });
 </script>
 
 <div
@@ -141,11 +160,21 @@
           {/if}
         </div>
       {/each}
-    </div>
 
-    {#if classKey === "verdant_oracle"}
-      <VerdantOracleAlerts lane="combo" />
-    {/if}
+      {#if classKey === "verdant_oracle"}
+        <div class="verdant-secondary-row">
+          <div
+            class="verdant-seed-counter"
+            aria-label={`Seed Trigger Counter ${seedTriggerCounter}`}
+            title="Seed Trigger Counter"
+          >
+            <span class="verdant-seed-dot"></span>
+            <span class="verdant-seed-value">{seedTriggerCounter}</span>
+          </div>
+          <VerdantOracleAlerts lane="combo" />
+        </div>
+      {/if}
+    </div>
   </div>
 
   {#if editing}
@@ -233,9 +262,16 @@
   }
 
   .resources-panel[data-class="verdant_oracle"] .sharpness-row {
-    align-self: flex-start;
+    align-self: stretch;
+    width: 100%;
+    box-sizing: border-box;
     margin-top: -5px;
-    margin-left: 15px;
+    margin-left: 0;
+    padding: 10px 15px 12px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.95);
   }
 
   .resources-panel[data-class="verdant_oracle"] .res-charges-container {
@@ -250,6 +286,51 @@
     margin-left: 4px;
     font-size: 18px;
     line-height: 22px;
+  }
+
+  .verdant-secondary-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 30px;
+    white-space: nowrap;
+  }
+
+  .verdant-seed-counter {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 72px;
+  }
+
+  .verdant-seed-dot {
+    display: inline-block;
+    width: 26px;
+    height: 26px;
+    flex: 0 0 26px;
+    border-radius: 50%;
+    background: #22c55e;
+    box-shadow:
+      0 0 7px rgba(34, 197, 94, 0.85),
+      0 0 13px rgba(34, 197, 94, 0.5);
+  }
+
+  .verdant-seed-value {
+    color: #22c55e;
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 26px;
+    text-shadow:
+      0 0 6px rgba(34, 197, 94, 0.8),
+      1px 1px 2px rgba(0, 0, 0, 0.95);
+  }
+
+  .resources-panel[data-class="verdant_oracle"]
+    .verdant-secondary-row
+    :global(.verdant-alerts.combo) {
+    margin: 0;
+    max-width: none;
+    flex-wrap: nowrap;
   }
 
   .res-bar-container {
