@@ -9,6 +9,7 @@
   import * as Tabs from "$lib/components/ui/tabs/index.js";
   import LiveSettings from "./live.svelte";
   import HistorySettings from "./history.svelte";
+  import LiveSceneVisibilitySetting from "./live-scene-visibility-setting.svelte";
 
   const settingsTabs = [
     { id: "live", labelKey: "settings.tabs.live" },
@@ -31,6 +32,10 @@
         ? t("settings.scope.live")
         : t("settings.scope.history")}
     </p>
+
+    {#if activeTab === "live"}
+      <LiveSceneVisibilitySetting />
+    {/if}
 
     <LiveSettings />
     <HistorySettings />
