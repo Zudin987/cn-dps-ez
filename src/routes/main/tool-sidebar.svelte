@@ -20,6 +20,7 @@
   import LayersIcon from "virtual:icons/lucide/layers";
   import SettingsIcon from "virtual:icons/lucide/settings";
   import { activeLoadout, listLoadouts, switchLoadout } from "$lib/loadouts.svelte.js";
+  import LiveDailySceneController from "$lib/live-daily-scene-controller.svelte";
 
   // Check if current path matches or starts with the tool path
   function isActiveRoute(toolPath: string): boolean {
@@ -42,6 +43,8 @@
   const loadouts = $derived(listLoadouts());
   const currentLoadout = $derived(activeLoadout());
 </script>
+
+<LiveDailySceneController />
 
 <aside
   class="flex flex-col w-56 shrink-0 bg-card/50 border-r border-border/50 h-full"
