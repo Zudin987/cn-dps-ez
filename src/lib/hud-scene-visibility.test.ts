@@ -5,8 +5,10 @@ import {
   type SceneVisibilityInput,
 } from "./hud-scene-visibility";
 
-// 9 is in DAILY_SCENE_IDS; 6615 is a registered minimap scene; 6613 is neither.
-const DAILY_SCENE = 9;
+// Guild Activity Center / Guild Party are social scenes; 6615 is a registered
+// minimap scene; 6613 is neither.
+const GUILD_SCENE = 12000;
+const GUILD_PARTY_SCENE = 12040;
 const SUPPORTED_SCENE = 6615;
 const PLAIN_SCENE = 6613;
 
@@ -36,10 +38,18 @@ describe("resolveSceneVisibility", () => {
   });
 
   it("only hides in daily scenes when auto-hide is on", () => {
-    expect(resolveSceneVisibility(input({ sceneId: DAILY_SCENE }))).toBe(true);
+    expect(resolveSceneVisibility(input({ sceneId: GUILD_SCENE }))).toBe(true);
     expect(
       resolveSceneVisibility(
-        input({ sceneId: DAILY_SCENE, autoHideInDailyScenes: true }),
+        input({ sceneId: GUILD_SCENE, autoHideInDailyScenes: true }),
+      ),
+    ).toBe(false);
+  });
+
+  it("treats Guild Party as a daily social scene too", () => {
+    expect(
+      resolveSceneVisibility(
+        input({ sceneId: GUILD_PARTY_SCENE, autoHideInDailyScenes: true }),
       ),
     ).toBe(false);
   });
