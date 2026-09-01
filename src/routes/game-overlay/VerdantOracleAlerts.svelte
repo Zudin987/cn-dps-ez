@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { SkillCdState } from "$lib/api";
   import {
     resolveVerdantImagineCooldownState,
     resolveVerdantOracleAlerts,
@@ -28,6 +29,21 @@
   const cooldowns = $derived(cdMap());
   const now = $derived(overlayNow());
 
+  function exactRemainingSeconds(cd: SkillCdState): number {
+    const cdAccelerateRate = Math.max(0, cd.cdAccelerateRate ?? 0);
+    const elapsed = Math.max(0, now - cd.receivedAt);
+    const baseDuration = cd.duration > 0 ? Math.max(1, cd.duration) : 1;
+    const reducedDuration =
+      cd.duration > 0 ? Math.max(0, cd.calculatedDuration) : 0;
+    const validCdScale =
+      cd.duration > 0 ? reducedDuration / baseDuration : 1;
+    const progressed =
+      cd.validCdTime * validCdScale + elapsed * (1 + cdAccelerateRate);
+    const remainingMs =
+      reducedDuration > 0 ? Math.max(0, reducedDuration - progressed) : 0;
+    return remainingMs / 1000;
+  }
+
   function imagineState(skillId: number): VerdantImagineState {
     const cd = cooldowns.get(skillId);
     if (!cd) return "hidden";
@@ -37,7 +53,7 @@
 
     return resolveVerdantImagineCooldownState(
       display.isActive,
-      Number(display.text),
+      exactRemainingSeconds(cd),
     );
   }
 
