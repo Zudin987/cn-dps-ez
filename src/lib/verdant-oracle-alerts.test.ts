@@ -26,7 +26,7 @@ describe("resolveVerdantOracleAlerts", () => {
   });
 
   it("maps live cooldown state to hidden, soon, ready, and reset states", () => {
-    expect(resolveVerdantImagineCooldownState(true, 10.1)).toBe("hidden");
+    expect(resolveVerdantImagineCooldownState(true, 10.01)).toBe("hidden");
     expect(resolveVerdantImagineCooldownState(true, 10)).toBe("soon");
     expect(resolveVerdantImagineCooldownState(true, 0.1)).toBe("soon");
     expect(resolveVerdantImagineCooldownState(false, 0)).toBe("ready");
