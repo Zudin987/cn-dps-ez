@@ -1,6 +1,7 @@
 export const VERDANT_ORACLE_ALERT_COLORS = {
   lowEnergy: "#FFB020",
   criticalEnergy: "#FF3B30",
+  wardPulse: "#FF3B30",
   imagineSoon: "#FFB020",
   imagineReady: "#7CFF6B",
   dontPulse: "#FF6A00",
@@ -22,6 +23,7 @@ export type VerdantImagineState = "hidden" | "soon" | "ready";
 export type VerdantOracleAlertId =
   | "low-energy"
   | "critical-energy"
+  | "ward-pulse"
   | "crab-soon"
   | "crab-ready"
   | "fhorn-soon"
@@ -39,6 +41,8 @@ export type VerdantOracleAlert = {
 export type VerdantOracleAlertInput = {
   energy: number;
   petals: number;
+  wardUsable: boolean;
+  pulseUsable: boolean;
   crab: VerdantImagineState;
   flamehorn: VerdantImagineState;
 };
@@ -70,7 +74,7 @@ export function resolveVerdantImagineCooldownState(
  *
  * Priority is local to each information lane so unrelated alerts can coexist:
  * - CRITICAL ENERGY > LOW ENERGY
- * - Petals <= 2 = OK TO PULSE, petals 3 = neutral, petals >= 4 = DON'T PULSE
+ * - WARD → PULSE > DON'T PULSE / OK TO PULSE / neutral petal state
  * - Each tracked Imagine is hidden until its final 10 seconds, then READY once
  *   the live cooldown completes.
  */
@@ -98,7 +102,19 @@ export function resolveVerdantOracleAlerts(
     );
   }
 
-  if (input.petals <= 2) {
+  const wardPulseReady =
+    input.energy >= 70 && input.wardUsable && input.pulseUsable;
+
+  if (wardPulseReady) {
+    alerts.push(
+      alert(
+        "ward-pulse",
+        "WARD → PULSE",
+        VERDANT_ORACLE_ALERT_COLORS.wardPulse,
+        true,
+      ),
+    );
+  } else if (input.petals <= 2) {
     alerts.push(
       alert(
         "ok-pulse",
