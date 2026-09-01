@@ -297,12 +297,21 @@
   .verdant-primary-row,
   .verdant-secondary-row {
     display: grid;
-    grid-template-columns: 76px minmax(0, 1fr);
-    column-gap: 8px;
     align-items: center;
     width: 100%;
     min-height: 24px;
     white-space: nowrap;
+  }
+
+  .verdant-primary-row {
+    grid-template-columns: 76px minmax(0, 1fr);
+    column-gap: 8px;
+  }
+
+  .verdant-secondary-row {
+    grid-template-columns: max-content max-content;
+    column-gap: 6px;
+    justify-content: start;
   }
 
   .verdant-bud-counter,
