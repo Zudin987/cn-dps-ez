@@ -1,21 +1,24 @@
 <script lang="ts">
-  import { resolveVerdantOracleAlerts } from "$lib/verdant-oracle-alerts";
   import {
-    activeBuffIds,
-    buffMap,
+    resolveVerdantOracleAlerts,
+    type VerdantImagineState,
+  } from "$lib/verdant-oracle-alerts";
+  import {
+    cdMap,
     fightResMap,
     getResourceValue,
   } from "./overlay-state.svelte.js";
+  import { overlayNow } from "./overlay-clock.svelte.js";
+  import { computeDisplay } from "./overlay-utils";
 
   type AlertLane = "energy" | "petal" | "combo";
   let { lane = "combo" }: { lane?: AlertLane } = $props();
 
   const VERDANT_ENERGY_ID = 15001;
   const VERDANT_PETAL_ID = 15011;
-  const ENHANCED_INFUSION_BUFF_ID = 2202131;
-  const STAG_BUILDUP_BUFF_ID = 2202251;
-  const STAG_READY_BUFF_ID = 2202252;
-  const STAG_READY_COUNT = 10;
+  const PHANTOM_ARACHNOCRAB_SKILL_ID = 3938;
+  const FLAMEHORN_SKILL_ID = 3956;
+  const IMAGINE_SOON_SECONDS = 10;
 
   const resources = $derived(fightResMap());
   const liveResourcesObserved = $derived(
@@ -23,22 +26,36 @@
   );
   const energy = $derived(getResourceValue(VERDANT_ENERGY_ID));
   const petals = $derived(getResourceValue(VERDANT_PETAL_ID));
-  const activeIds = $derived(activeBuffIds());
-  const buffs = $derived(buffMap());
+  const cooldowns = $derived(cdMap());
+  const now = $derived(overlayNow());
+
+  function imagineState(skillId: number): VerdantImagineState {
+    const cd = cooldowns.get(skillId);
+    if (!cd) return "hidden";
+
+    const display = computeDisplay("verdant_oracle", skillId, cd, now);
+    if (!display) return "hidden";
+    if (!display.isActive) return "ready";
+
+    const remainingSeconds = Number(display.text);
+    if (
+      Number.isFinite(remainingSeconds) &&
+      remainingSeconds > 0 &&
+      remainingSeconds <= IMAGINE_SOON_SECONDS
+    ) {
+      return "soon";
+    }
+    return "hidden";
+  }
 
   const alerts = $derived.by(() => {
     if (!liveResourcesObserved) return [];
 
-    const stagBuildup = activeIds.has(STAG_BUILDUP_BUFF_ID)
-      ? Math.max(0, buffs.get(STAG_BUILDUP_BUFF_ID)?.layer ?? 0)
-      : 0;
-
     return resolveVerdantOracleAlerts({
       energy,
       petals,
-      enhancedInfusionReady: activeIds.has(ENHANCED_INFUSION_BUFF_ID),
-      stagReady:
-        activeIds.has(STAG_READY_BUFF_ID) || stagBuildup >= STAG_READY_COUNT,
+      crab: imagineState(PHANTOM_ARACHNOCRAB_SKILL_ID),
+      flamehorn: imagineState(FLAMEHORN_SKILL_ID),
     });
   });
 
@@ -51,9 +68,10 @@
         return alert.id === "ok-pulse" || alert.id === "dont-pulse";
       }
       return (
-        alert.id === "einf-ready" ||
-        alert.id === "stag-ready" ||
-        alert.id === "einf-stag"
+        alert.id === "crab-soon" ||
+        alert.id === "crab-ready" ||
+        alert.id === "fhorn-soon" ||
+        alert.id === "fhorn-ready"
       );
     }),
   );
