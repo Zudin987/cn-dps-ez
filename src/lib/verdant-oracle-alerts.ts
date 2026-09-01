@@ -1,19 +1,21 @@
 export const VERDANT_ORACLE_ALERT_COLORS = {
   lowEnergy: "#FFB020",
   criticalEnergy: "#FF3B30",
-  einfReady: "#7CFF6B",
-  stagReady: "#FFD84D",
-  einfStag: "#FF4DFF",
+  imagineSoon: "#FFB020",
+  imagineReady: "#7CFF6B",
   dontPulse: "#FF6A00",
   okPulse: "#3FE0C5",
 } as const;
 
+export type VerdantImagineState = "hidden" | "soon" | "ready";
+
 export type VerdantOracleAlertId =
   | "low-energy"
   | "critical-energy"
-  | "einf-ready"
-  | "stag-ready"
-  | "einf-stag"
+  | "crab-soon"
+  | "crab-ready"
+  | "fhorn-soon"
+  | "fhorn-ready"
   | "dont-pulse"
   | "ok-pulse";
 
@@ -27,8 +29,8 @@ export type VerdantOracleAlert = {
 export type VerdantOracleAlertInput = {
   energy: number;
   petals: number;
-  enhancedInfusionReady: boolean;
-  stagReady: boolean;
+  crab: VerdantImagineState;
+  flamehorn: VerdantImagineState;
 };
 
 const alert = (
@@ -41,11 +43,11 @@ const alert = (
 /**
  * Resolve the compact Verdant Oracle HUD alerts.
  *
- * Priority is intentionally local to each information lane so unrelated useful
- * alerts can coexist while redundant states cannot:
+ * Priority is local to each information lane so unrelated alerts can coexist:
  * - CRITICAL ENERGY > LOW ENERGY
  * - Petals <= 2 = OK TO PULSE, petals 3 = neutral, petals >= 4 = DON'T PULSE
- * - EINF → STAG > EINF READY / STAG READY
+ * - Each tracked Imagine is hidden until its final 10 seconds, then READY once
+ *   the live cooldown completes.
  */
 export function resolveVerdantOracleAlerts(
   input: VerdantOracleAlertInput,
@@ -89,33 +91,40 @@ export function resolveVerdantOracleAlerts(
     );
   }
 
-  if (input.enhancedInfusionReady && input.stagReady) {
+  if (input.crab === "soon") {
     alerts.push(
       alert(
-        "einf-stag",
-        "EINF → STAG",
-        VERDANT_ORACLE_ALERT_COLORS.einfStag,
+        "crab-soon",
+        "CRAB READY in 10s",
+        VERDANT_ORACLE_ALERT_COLORS.imagineSoon,
       ),
     );
-  } else {
-    if (input.enhancedInfusionReady) {
-      alerts.push(
-        alert(
-          "einf-ready",
-          "EINF READY",
-          VERDANT_ORACLE_ALERT_COLORS.einfReady,
-        ),
-      );
-    }
-    if (input.stagReady) {
-      alerts.push(
-        alert(
-          "stag-ready",
-          "STAG READY",
-          VERDANT_ORACLE_ALERT_COLORS.stagReady,
-        ),
-      );
-    }
+  } else if (input.crab === "ready") {
+    alerts.push(
+      alert(
+        "crab-ready",
+        "CRAB READY",
+        VERDANT_ORACLE_ALERT_COLORS.imagineReady,
+      ),
+    );
+  }
+
+  if (input.flamehorn === "soon") {
+    alerts.push(
+      alert(
+        "fhorn-soon",
+        "FHorn READY in 10s",
+        VERDANT_ORACLE_ALERT_COLORS.imagineSoon,
+      ),
+    );
+  } else if (input.flamehorn === "ready") {
+    alerts.push(
+      alert(
+        "fhorn-ready",
+        "FHorn READY",
+        VERDANT_ORACLE_ALERT_COLORS.imagineReady,
+      ),
+    );
   }
 
   return alerts;
