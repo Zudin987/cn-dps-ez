@@ -8,6 +8,7 @@
   } from "$lib/verdant-oracle-alerts";
   import {
     cdMap,
+    displayMap,
     fightResMap,
     getResourceValue,
   } from "./overlay-state.svelte.js";
@@ -19,6 +20,8 @@
 
   const VERDANT_ENERGY_ID = 15001;
   const VERDANT_PETAL_ID = 15011;
+  const WARD_SKILL_ID = 1531;
+  const PULSE_SKILL_ID = 1523;
 
   const resources = $derived(fightResMap());
   const liveResourcesObserved = $derived(
@@ -27,6 +30,7 @@
   const energy = $derived(getResourceValue(VERDANT_ENERGY_ID));
   const petals = $derived(getResourceValue(VERDANT_PETAL_ID));
   const cooldowns = $derived(cdMap());
+  const skillDisplays = $derived(displayMap());
   const now = $derived(overlayNow());
 
   function exactRemainingSeconds(cd: SkillCdState): number {
@@ -63,6 +67,10 @@
     return resolveVerdantOracleAlerts({
       energy,
       petals,
+      // Reuse the skill HUD's live readiness semantics. Missing active-CD
+      // display means usable, matching the original Ward → Pulse detector.
+      wardUsable: skillDisplays.get(WARD_SKILL_ID)?.usable ?? true,
+      pulseUsable: skillDisplays.get(PULSE_SKILL_ID)?.usable ?? true,
       crab: imagineState(VERDANT_IMAGINE_SKILL_IDS.phantomArachnocrab),
       flamehorn: imagineState(VERDANT_IMAGINE_SKILL_IDS.flamehorn),
     });
@@ -74,7 +82,11 @@
         return alert.id === "low-energy" || alert.id === "critical-energy";
       }
       if (lane === "petal") {
-        return alert.id === "ok-pulse" || alert.id === "dont-pulse";
+        return (
+          alert.id === "ward-pulse" ||
+          alert.id === "ok-pulse" ||
+          alert.id === "dont-pulse"
+        );
       }
       return (
         alert.id === "crab-soon" ||
@@ -137,7 +149,9 @@
     box-shadow: 0 0 5px color-mix(in srgb, var(--verdant-alert-color) 32%, transparent);
   }
 
-  .verdant-alerts.petal .verdant-alert {
+  /* Normal Pulse guidance stays text-only. WARD → PULSE carries the
+     critical-flash class, so it keeps the red warning border/background. */
+  .verdant-alerts.petal .verdant-alert:not(.critical-flash) {
     padding: 0;
     border: 0;
     border-radius: 0;
