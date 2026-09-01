@@ -10,6 +10,8 @@ import {
 const baseInput: VerdantOracleAlertInput = {
   energy: 100,
   petals: 3,
+  wardUsable: false,
+  pulseUsable: false,
   crab: "hidden",
   flamehorn: "hidden",
 };
@@ -44,20 +46,54 @@ describe("resolveVerdantOracleAlerts", () => {
     expect(ids({ energy: 60 })).not.toContain("low-energy");
   });
 
-  it("keeps the Pulse petal states mutually exclusive", () => {
+  it("keeps the normal Pulse petal states mutually exclusive", () => {
     expect(ids({ petals: 2 })).toContain("ok-pulse");
     expect(ids({ petals: 3 })).not.toContain("ok-pulse");
     expect(ids({ petals: 3 })).not.toContain("dont-pulse");
     expect(ids({ petals: 4 })).toContain("dont-pulse");
   });
 
-  it("does not emit the removed Ward into Pulse cue", () => {
-    const result = resolveVerdantOracleAlerts({
-      ...baseInput,
-      petals: 2,
-    });
+  it("gives WARD → PULSE first priority across the whole Pulse lane", () => {
+    for (const petals of [2, 3, 4]) {
+      const result = resolveVerdantOracleAlerts({
+        ...baseInput,
+        energy: 70,
+        petals,
+        wardUsable: true,
+        pulseUsable: true,
+      });
 
-    expect(result.map((item) => item.label)).toEqual(["OK TO PULSE"]);
+      expect(result.map((item) => item.label)).toEqual(["WARD → PULSE"]);
+      expect(result.map((item) => item.id)).not.toContain("ok-pulse");
+      expect(result.map((item) => item.id)).not.toContain("dont-pulse");
+    }
+  });
+
+  it("requires enough energy and both Ward and Pulse to be usable", () => {
+    expect(
+      ids({
+        energy: 69,
+        petals: 2,
+        wardUsable: true,
+        pulseUsable: true,
+      }),
+    ).not.toContain("ward-pulse");
+    expect(
+      ids({
+        energy: 100,
+        petals: 2,
+        wardUsable: false,
+        pulseUsable: true,
+      }),
+    ).not.toContain("ward-pulse");
+    expect(
+      ids({
+        energy: 100,
+        petals: 2,
+        wardUsable: true,
+        pulseUsable: false,
+      }),
+    ).not.toContain("ward-pulse");
   });
 
   it("shows Phantom Arachnocrab at ten seconds and when ready", () => {
@@ -98,30 +134,46 @@ describe("resolveVerdantOracleAlerts", () => {
     ]);
   });
 
-  it("uses the requested palette and flashes only critical energy", () => {
+  it("uses the requested palette and flashes critical energy and Ward → Pulse", () => {
     expect(VERDANT_ORACLE_ALERT_COLORS).toEqual({
       lowEnergy: "#FFB020",
       criticalEnergy: "#FF3B30",
+      wardPulse: "#FF3B30",
       imagineSoon: "#FFB020",
       imagineReady: "#7CFF6B",
       dontPulse: "#FF6A00",
       okPulse: "#3FE0C5",
     });
 
-    const result = resolveVerdantOracleAlerts({
+    const criticalResult = resolveVerdantOracleAlerts({
       ...baseInput,
       energy: 20,
       petals: 2,
       crab: "ready",
       flamehorn: "soon",
     });
-    expect(result.find((item) => item.id === "critical-energy")?.flash).toBe(
-      true,
-    );
     expect(
-      result
+      criticalResult.find((item) => item.id === "critical-energy")?.flash,
+    ).toBe(true);
+    expect(
+      criticalResult
         .filter((item) => item.id !== "critical-energy")
         .every((item) => item.flash === false),
     ).toBe(true);
+
+    const wardResult = resolveVerdantOracleAlerts({
+      ...baseInput,
+      energy: 100,
+      petals: 4,
+      wardUsable: true,
+      pulseUsable: true,
+    });
+    expect(wardResult).toHaveLength(1);
+    expect(wardResult[0]).toMatchObject({
+      id: "ward-pulse",
+      label: "WARD → PULSE",
+      color: "#FF3B30",
+      flash: true,
+    });
   });
 });
