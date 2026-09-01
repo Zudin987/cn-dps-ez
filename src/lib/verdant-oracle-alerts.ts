@@ -7,6 +7,16 @@ export const VERDANT_ORACLE_ALERT_COLORS = {
   okPulse: "#3FE0C5",
 } as const;
 
+// Verified base resonance-skill IDs used by the live cooldown map.
+// Upstream fantasy mappings: Arachnocrab resonance 3000023 -> 3938;
+// Flamehorn resonance 3000052 -> 3956.
+export const VERDANT_IMAGINE_SKILL_IDS = {
+  phantomArachnocrab: 3938,
+  flamehorn: 3956,
+} as const;
+
+export const VERDANT_IMAGINE_SOON_SECONDS = 10;
+
 export type VerdantImagineState = "hidden" | "soon" | "ready";
 
 export type VerdantOracleAlertId =
@@ -39,6 +49,21 @@ const alert = (
   color: string,
   flash = false,
 ): VerdantOracleAlert => ({ id, label, color, flash });
+
+export function resolveVerdantImagineCooldownState(
+  isActive: boolean,
+  remainingSeconds: number,
+): VerdantImagineState {
+  if (!isActive) return "ready";
+  if (
+    Number.isFinite(remainingSeconds) &&
+    remainingSeconds > 0 &&
+    remainingSeconds <= VERDANT_IMAGINE_SOON_SECONDS
+  ) {
+    return "soon";
+  }
+  return "hidden";
+}
 
 /**
  * Resolve the compact Verdant Oracle HUD alerts.
@@ -95,7 +120,7 @@ export function resolveVerdantOracleAlerts(
     alerts.push(
       alert(
         "crab-soon",
-        "CRAB READY in 10s",
+        "CRAB READY IN 10s",
         VERDANT_ORACLE_ALERT_COLORS.imagineSoon,
       ),
     );
@@ -113,7 +138,7 @@ export function resolveVerdantOracleAlerts(
     alerts.push(
       alert(
         "fhorn-soon",
-        "FHorn READY in 10s",
+        "FHorn READY IN 10s",
         VERDANT_ORACLE_ALERT_COLORS.imagineSoon,
       ),
     );
