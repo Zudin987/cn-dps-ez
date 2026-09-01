@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  VERDANT_IMAGINE_SKILL_IDS,
   VERDANT_ORACLE_ALERT_COLORS,
+  resolveVerdantImagineCooldownState,
   resolveVerdantOracleAlerts,
   type VerdantOracleAlertInput,
 } from "./verdant-oracle-alerts";
@@ -16,6 +18,24 @@ const ids = (input: Partial<VerdantOracleAlertInput>) =>
   resolveVerdantOracleAlerts({ ...baseInput, ...input }).map((item) => item.id);
 
 describe("resolveVerdantOracleAlerts", () => {
+  it("uses the verified resonance-skill IDs for the tracked Imagines", () => {
+    expect(VERDANT_IMAGINE_SKILL_IDS).toEqual({
+      phantomArachnocrab: 3938,
+      flamehorn: 3956,
+    });
+  });
+
+  it("maps live cooldown state to hidden, soon, ready, and reset states", () => {
+    expect(resolveVerdantImagineCooldownState(true, 10.1)).toBe("hidden");
+    expect(resolveVerdantImagineCooldownState(true, 10)).toBe("soon");
+    expect(resolveVerdantImagineCooldownState(true, 0.1)).toBe("soon");
+    expect(resolveVerdantImagineCooldownState(false, 0)).toBe("ready");
+
+    // A fresh live cooldown after another cast immediately leaves READY and
+    // stays hidden until the new cooldown reaches its final ten seconds.
+    expect(resolveVerdantImagineCooldownState(true, 80)).toBe("hidden");
+  });
+
   it("lets critical energy override low energy", () => {
     expect(ids({ energy: 29 })).toContain("critical-energy");
     expect(ids({ energy: 29 })).not.toContain("low-energy");
@@ -45,6 +65,12 @@ describe("resolveVerdantOracleAlerts", () => {
     expect(ids({ crab: "soon" })).not.toContain("crab-ready");
     expect(ids({ crab: "ready" })).toContain("crab-ready");
     expect(ids({ crab: "ready" })).not.toContain("crab-soon");
+
+    expect(
+      resolveVerdantOracleAlerts({ ...baseInput, crab: "soon" }).map(
+        (item) => item.label,
+      ),
+    ).toEqual(["CRAB READY IN 10s"]);
   });
 
   it("shows Flamehorn at ten seconds and when ready", () => {
@@ -52,6 +78,12 @@ describe("resolveVerdantOracleAlerts", () => {
     expect(ids({ flamehorn: "soon" })).not.toContain("fhorn-ready");
     expect(ids({ flamehorn: "ready" })).toContain("fhorn-ready");
     expect(ids({ flamehorn: "ready" })).not.toContain("fhorn-soon");
+
+    expect(
+      resolveVerdantOracleAlerts({ ...baseInput, flamehorn: "soon" }).map(
+        (item) => item.label,
+      ),
+    ).toEqual(["FHorn READY IN 10s"]);
   });
 
   it("allows both Imagine alerts to coexist", () => {
@@ -62,7 +94,7 @@ describe("resolveVerdantOracleAlerts", () => {
     });
     expect(result.map((item) => item.label)).toEqual([
       "CRAB READY",
-      "FHorn READY in 10s",
+      "FHorn READY IN 10s",
     ]);
   });
 
