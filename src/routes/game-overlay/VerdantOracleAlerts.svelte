@@ -1,6 +1,8 @@
 <script lang="ts">
   import {
+    resolveVerdantImagineCooldownState,
     resolveVerdantOracleAlerts,
+    VERDANT_IMAGINE_SKILL_IDS,
     type VerdantImagineState,
   } from "$lib/verdant-oracle-alerts";
   import {
@@ -16,9 +18,6 @@
 
   const VERDANT_ENERGY_ID = 15001;
   const VERDANT_PETAL_ID = 15011;
-  const PHANTOM_ARACHNOCRAB_SKILL_ID = 3938;
-  const FLAMEHORN_SKILL_ID = 3956;
-  const IMAGINE_SOON_SECONDS = 10;
 
   const resources = $derived(fightResMap());
   const liveResourcesObserved = $derived(
@@ -35,17 +34,11 @@
 
     const display = computeDisplay("verdant_oracle", skillId, cd, now);
     if (!display) return "hidden";
-    if (!display.isActive) return "ready";
 
-    const remainingSeconds = Number(display.text);
-    if (
-      Number.isFinite(remainingSeconds) &&
-      remainingSeconds > 0 &&
-      remainingSeconds <= IMAGINE_SOON_SECONDS
-    ) {
-      return "soon";
-    }
-    return "hidden";
+    return resolveVerdantImagineCooldownState(
+      display.isActive,
+      Number(display.text),
+    );
   }
 
   const alerts = $derived.by(() => {
@@ -54,8 +47,8 @@
     return resolveVerdantOracleAlerts({
       energy,
       petals,
-      crab: imagineState(PHANTOM_ARACHNOCRAB_SKILL_ID),
-      flamehorn: imagineState(FLAMEHORN_SKILL_ID),
+      crab: imagineState(VERDANT_IMAGINE_SKILL_IDS.phantomArachnocrab),
+      flamehorn: imagineState(VERDANT_IMAGINE_SKILL_IDS.flamehorn),
     });
   });
 
