@@ -1,7 +1,9 @@
 <script lang="ts">
   import { t } from "$lib/i18n/index.svelte";
   import {
+    activeBuffIds,
     buffDurationPercents,
+    buffMap,
     getGroupPosition,
     getGroupScale,
     getResourcePreciseValue,
@@ -12,17 +14,35 @@
     startResize,
   } from "./overlay-state.svelte.js";
   import { findResourcesByClass } from "$lib/skill-mappings";
+  import VerdantOracleAlerts from "./VerdantOracleAlerts.svelte";
+
+  const VERDANT_SEED_TRIGGER_BUFF_ID = 2202251;
 
   const editing = $derived(isEditing());
   const groupPos = $derived(getGroupPosition("resourceGroup"));
   const groupScale = $derived(getGroupScale("resourceGroupScale"));
   const classKey = $derived(selectedClassKey());
   const durationPercents = $derived(buffDurationPercents());
+  const activeIds = $derived(activeBuffIds());
+  const buffs = $derived(buffMap());
   const resources = $derived(findResourcesByClass(classKey));
   const barResources = $derived(resources.filter((res) => res.type === "bar"));
   const chargeResources = $derived(
     resources.filter((res) => res.type === "charges"),
   );
+  const seedTriggerCounter = $derived.by(() => {
+    if (
+      classKey !== "verdant_oracle" ||
+      !activeIds.has(VERDANT_SEED_TRIGGER_BUFF_ID)
+    ) {
+      return 0;
+    }
+
+    return Math.min(
+      9,
+      Math.max(0, buffs.get(VERDANT_SEED_TRIGGER_BUFF_ID)?.layer ?? 0),
+    );
+  });
 </script>
 
 <div
@@ -74,7 +94,12 @@
               ></div>
             </div>
           </div>
-          <div class="res-text">{cur}/{max}</div>
+          <div class="res-text">
+            <span>{cur}/{max}</span>
+            {#if classKey === "verdant_oracle"}
+              <VerdantOracleAlerts lane="energy" />
+            {/if}
+          </div>
         </div>
       {/each}
     </div>
@@ -83,12 +108,26 @@
       {#each chargeResources as res}
         {@const cur = getResourceValue(res.currentId)}
         {@const max = Math.max(1, getResourceValue(res.maxId))}
-        <div class="res-charges-container">
+        <div
+          class="res-charges-container"
+          class:verdant-primary-row={classKey === "verdant_oracle"}
+        >
           {#if res.compactAbove !== undefined}
             {@const compactCur = Math.max(0, cur)}
             {@const compactMultiplierPrefix =
               res.compactMultiplierPrefix ?? "*"}
-            {#if compactCur <= 0}
+            {#if classKey === "verdant_oracle"}
+              <span class="verdant-bud-counter">
+                <img
+                  src={compactCur > 0 ? res.imageOn : res.imageOff}
+                  alt={res.label}
+                  class="res-charge-icon"
+                />
+                <span class="res-charge-multiplier"
+                  >{compactMultiplierPrefix}{compactCur}</span
+                >
+              </span>
+            {:else if compactCur <= 0}
               <img
                 src={res.imageOff}
                 alt={res.label}
@@ -121,8 +160,25 @@
               />
             {/each}
           {/if}
+          {#if classKey === "verdant_oracle"}
+            <VerdantOracleAlerts lane="petal" />
+          {/if}
         </div>
       {/each}
+
+      {#if classKey === "verdant_oracle"}
+        <div class="verdant-secondary-row">
+          <div
+            class="verdant-seed-counter"
+            aria-label={`Seed Trigger Counter ${seedTriggerCounter}`}
+            title="Seed Trigger Counter"
+          >
+            <span class="verdant-seed-dot"></span>
+            <span class="verdant-seed-value">{seedTriggerCounter}</span>
+          </div>
+          <VerdantOracleAlerts lane="combo" />
+        </div>
+      {/if}
     </div>
   </div>
 
@@ -211,9 +267,17 @@
   }
 
   .resources-panel[data-class="verdant_oracle"] .sharpness-row {
-    align-self: flex-start;
+    align-self: stretch;
+    width: 100%;
+    box-sizing: border-box;
     margin-top: -5px;
-    margin-left: 15px;
+    margin-left: 0;
+    padding: 10px 15px 12px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.85);
+    border-radius: 5px;
   }
 
   .resources-panel[data-class="verdant_oracle"] .res-charges-container {
@@ -225,9 +289,78 @@
   }
 
   .resources-panel[data-class="verdant_oracle"] .res-charge-multiplier {
-    margin-left: 4px;
+    margin-left: 0;
     font-size: 18px;
     line-height: 22px;
+  }
+
+  .verdant-primary-row,
+  .verdant-secondary-row {
+    display: grid;
+    align-items: center;
+    width: 100%;
+    min-height: 24px;
+    white-space: nowrap;
+  }
+
+  .verdant-primary-row {
+    grid-template-columns: 76px minmax(0, 1fr);
+    column-gap: 8px;
+  }
+
+  .verdant-secondary-row {
+    grid-template-columns: max-content max-content;
+    column-gap: 6px;
+    justify-content: start;
+  }
+
+  .verdant-bud-counter,
+  .verdant-seed-counter {
+    display: inline-flex;
+    align-items: center;
+    justify-self: start;
+  }
+
+  .verdant-bud-counter {
+    gap: 4px;
+  }
+
+  .verdant-seed-counter {
+    gap: 9px;
+  }
+
+  .verdant-seed-dot {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+    border-radius: 50%;
+    background: #22c55e;
+    box-shadow:
+      0 0 5px rgba(34, 197, 94, 0.8),
+      0 0 8px rgba(34, 197, 94, 0.42);
+  }
+
+  .verdant-seed-value {
+    color: #22c55e;
+    font-size: 18px;
+    font-weight: 800;
+    line-height: 22px;
+    text-shadow:
+      0 0 5px rgba(34, 197, 94, 0.75),
+      1px 1px 2px rgba(0, 0, 0, 0.95);
+  }
+
+  .resources-panel[data-class="verdant_oracle"]
+    .verdant-primary-row
+    :global(.verdant-alerts.petal),
+  .resources-panel[data-class="verdant_oracle"]
+    .verdant-secondary-row
+    :global(.verdant-alerts.combo) {
+    justify-self: start;
+    margin: 0;
+    max-width: none;
+    flex-wrap: nowrap;
   }
 
   .res-bar-container {
@@ -287,10 +420,13 @@
     position: absolute;
     top: -17px;
     left: 0;
+    display: flex;
+    align-items: center;
     font-size: 14px;
     font-weight: 700;
     color: #ffffff;
     text-shadow: var(--overlay-text-shadow, 1px 1px 2px rgba(0, 0, 0, 0.9));
+    white-space: nowrap;
   }
 
   .res-charges-container {

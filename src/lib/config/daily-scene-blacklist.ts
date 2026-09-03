@@ -1,4 +1,25 @@
-const DAILY_SCENE_IDS = [9, 8, 76, 75, 74, 73, 72, 71, 7, 10, 11, 95, 94, 93, 91, 92] as const;
+const DAILY_SCENE_IDS = [
+  9,
+  8,
+  76,
+  75,
+  74,
+  73,
+  72,
+  71,
+  7,
+  10,
+  11,
+  95,
+  94,
+  93,
+  91,
+  92,
+  // Guild Activity Center and Guild Party are non-instance social scenes.
+  // Keep Guild Hunt (12011+) out so combat instances remain visible.
+  12000,
+  12040,
+] as const;
 
 const SUPPORTED_MINIMAP_SCENE_IDS = [
   6513,
