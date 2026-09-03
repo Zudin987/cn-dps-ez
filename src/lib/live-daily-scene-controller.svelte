@@ -4,6 +4,11 @@
     resolveLiveDailySceneVisibilityUpdate,
     type LiveDailySceneVisibilityMemory,
   } from "$lib/live-daily-scene-visibility";
+  import { readHudDomainRules } from "$lib/hud-domain-rules.svelte";
+  import {
+    domainRequiresSupportedScene,
+    resolveSceneVisibility,
+  } from "$lib/hud-scene-visibility";
   import { setOverlayWindowVisible } from "$lib/overlay-window-visibility.svelte";
   import { liveSceneStore } from "$lib/stores/live-topics.svelte";
 
@@ -20,6 +25,7 @@
   $effect(() => {
     const sceneId = liveSceneStore.data?.sceneId ?? null;
     const autoHide = getLiveAutoHideInDailyScenes();
+    const previousSceneId = visibilityMemory.sceneId;
     const decision = resolveLiveDailySceneVisibilityUpdate(
       visibilityMemory,
       sceneId,
@@ -27,8 +33,24 @@
     );
 
     visibilityMemory = decision.memory;
-    if (decision.shouldShow === null) return;
 
+    // Resource Monitor uses the shared HUD window. Its Toggle Overlay button
+    // is allowed to override scene auto-hide temporarily, just like Live/DPS.
+    // Reapply the persisted Resource Monitor rules only when the game really
+    // changes scene. This also catches daily -> daily transitions where the
+    // resolved boolean would otherwise remain false and not retrigger an effect.
+    if (sceneId !== null && decision.memory.sceneId !== previousSceneId) {
+      void setOverlayWindowVisible(
+        "game",
+        resolveSceneVisibility({
+          ...readHudDomainRules("game"),
+          sceneId,
+          requiresSupportedScene: domainRequiresSupportedScene("game"),
+        }),
+      );
+    }
+
+    if (decision.shouldShow === null) return;
     void setOverlayWindowVisible("live", decision.shouldShow);
   });
 </script>
